@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
@@ -10,17 +10,17 @@ import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
 const LABELS: Record<AppLanguage, {
-  ingredients: string; instructions: string; source: string;
+  ingredients: string; instructions: string;
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
-    source: 'Burimi', min: 'min', noImage: 'Nuk ka imazh',
+    min: 'min', noImage: 'Nuk ka imazh',
     addToPlanner: 'Shto në Plan', plannerAdded: 'U shtua!',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
-    source: 'Source', min: 'min', noImage: 'No image',
+    min: 'min', noImage: 'No image',
     addToPlanner: 'Add to Plan', plannerAdded: 'Added!',
   },
 };
@@ -117,18 +117,6 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
               </View>
             ))}
 
-            {/* Source */}
-            {recipe?.source?.url ? (
-              <>
-                <View style={s.divider} />
-                <Text
-                  style={s.sourceLink}
-                  onPress={() => void Linking.openURL(recipe.source.url)}
-                >
-                  {L.source}: {recipe.source.siteName}
-                </Text>
-              </>
-            ) : null}
 
             {/* Add to Planner */}
             {user != null && (
@@ -266,7 +254,6 @@ const s = StyleSheet.create({
   stepText: { flex: 1, fontSize: 15, lineHeight: 24, color: '#39354A' },
 
   // Source
-  sourceLink: { fontSize: 13, color: '#6ECAC0', textDecorationLine: 'underline' },
 
   // Add to Planner button
   plannerBtn: {
