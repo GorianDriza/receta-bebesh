@@ -96,6 +96,30 @@ function htmlDecode(value) {
     .replace(/&gt;/g, '>');
 }
 
+function extractGeminiText(payload) {
+  if (!payload || !Array.isArray(payload.steps)) {
+    return null;
+  }
+
+  for (const step of payload.steps) {
+    if (!Array.isArray(step.content)) {
+      continue;
+    }
+
+    const text = step.content
+      .filter((item) => item && item.type === 'text' && typeof item.text === 'string')
+      .map((item) => item.text)
+      .join('\n')
+      .trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
 function stripHtml(value) {
   return htmlDecode(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 }
@@ -335,10 +359,7 @@ async function translateRecipeWithGemini(recipe) {
   }
 
   const payload = await response.json();
-  const outputText =
-    typeof payload.output_text === 'string'
-      ? payload.output_text.trim()
-      : null;
+  const outputText = extractGeminiText(payload);
 
   if (!outputText) {
     throw new Error('Gemini translation returned no text output.');
