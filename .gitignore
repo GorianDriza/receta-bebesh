@@ -27,6 +27,10 @@ yarn-debug.*
 yarn-error.*
 .expo-start*.log
 .expo-start*.err.log
+.expo-android*.log
+.expo-android*.err.log
+.expo-bg*.log
+.expo-bg*.err.log
 .claude/
 AGENTS.md
 CLAUDE.md
@@ -45,3 +49,6 @@ CLAUDE.md
 # generated native folders
 /ios
 /android
+
+
+google-services.json
