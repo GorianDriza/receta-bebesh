@@ -13,8 +13,9 @@
 - [x] Tap recipe card → full-screen article modal (image, ingredients, steps, source link).
 - [ ] Replace emoji plates with real recipe photos from Firebase Storage (needs paid plan or direct URL mirror).
 - [ ] Add loading skeleton / empty / error states for all remote data.
-- [ ] Add age-stage filter chips to Meal Plan screen.
-- [ ] Add search bar to Meal Plan screen.
+- [x] Add age-stage filter chips to Meal Plan screen (All / 4-6m / 6-8m / 9-12m / 12m+ / Saved).
+- [x] Default filter auto-set from baby's age stage (profile birthdate).
+- [x] Add search bar to Meal Plan screen (client-side title search).
 
 ## Authentication
 
@@ -38,8 +39,9 @@
 
 ## Favourites & Meal Planner
 
-- [ ] Save favourite recipes per user (`users/<uid>/favourites/<recipeId>`).
-- [ ] Show favourites tab or section.
+- [x] Save favourite recipes per user (`users/<uid>/favourites/<recipeId>`).
+- [x] Heart button on recipe cards — toggles saved (filled red ♥ when saved).
+- [x] Filter chip "♡ Saved" shows only favourited recipes.
 - [ ] Weekly meal planner: assign recipes to days / meal types.
 - [ ] Persist planner data to Firebase per user.
 

@@ -1,14 +1,15 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
-import { fetchRecipes, RecipeRecord } from '../lib/recipes';
+import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
+import { fetchRecipes, RecipeRecord, RecipeStage } from '../lib/recipes';
+import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
-// Palette cycles for card backgrounds — pure UI data, not recipe content
 const PALETTE = [
   { bg: '#E5FF9A', accent: '#D4F768' },
   { bg: '#CFFFD6', accent: '#B7F4C2' },
@@ -17,9 +18,7 @@ const PALETTE = [
   { bg: '#FFF19D', accent: '#FFE25A' },
 ] as const;
 
-function paletteFor(index: number) {
-  return PALETTE[index % PALETTE.length];
-}
+function paletteFor(index: number) { return PALETTE[index % PALETTE.length]; }
 
 function emojiForMealType(mealType: string): string {
   const map: Record<string, string> = {
@@ -34,15 +33,32 @@ function durationLabel(r: RecipeRecord): string {
   return mins != null ? `${mins} min` : '';
 }
 
+type FilterId = RecipeStage | 'all' | 'fav';
+
 type Props = { onProfilePress?: () => void };
 
 export function MealPlanContent({ onProfilePress }: Props) {
   const { language, t } = useLanguage();
   const { user, userProfile } = useAuth();
-  const [recipes, setRecipes]   = useState<RecipeRecord[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [selected, setSelected] = useState<RecipeRecord | null>(null);
+
+  const [recipes, setRecipes]         = useState<RecipeRecord[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [selected, setSelected]       = useState<RecipeRecord | null>(null);
+  const [favouriteIds, setFavIds]     = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const defaultFilter = useMemo<FilterId>(() => {
+    const bd = userProfile?.babyBirthdate;
+    return bd ? computeAgeStage(bd) : 'all';
+  }, [userProfile?.babyBirthdate]);
+
+  const [ageFilter, setAgeFilter] = useState<FilterId>(defaultFilter);
+
+  // Re-apply default when profile loads
+  useEffect(() => {
+    setAgeFilter(defaultFilter);
+  }, [defaultFilter]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -50,22 +66,52 @@ export function MealPlanContent({ onProfilePress }: Props) {
     setLoading(true);
     setError(null);
     fetchRecipes()
-      .then((data) => {
-        if (!mounted) return;
-        startTransition(() => setRecipes(data));
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : 'Could not load recipes.');
-      })
+      .then((data) => { if (mounted) startTransition(() => setRecipes(data)); })
+      .catch((err) => { if (mounted) setError(err instanceof Error ? err.message : 'Could not load recipes.'); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
 
-  const displayed = useMemo(
-    () => recipes.slice(0, 5),
-    [recipes],
-  );
+  useEffect(() => {
+    if (!user || !isFirebaseConfigured) return;
+    getFavouriteIds(user.uid).then(setFavIds).catch(() => {});
+  }, [user]);
+
+  async function toggleFavourite(recipe: RecipeRecord) {
+    if (!user) return;
+    const isFav = favouriteIds.has(recipe.id);
+    // Optimistic UI
+    setFavIds((prev) => {
+      const next = new Set(prev);
+      if (isFav) next.delete(recipe.id); else next.add(recipe.id);
+      return next;
+    });
+    try {
+      if (isFav) await removeFavourite(user.uid, recipe.id);
+      else await addFavourite(user.uid, recipe.id);
+    } catch {
+      // Revert on failure
+      setFavIds((prev) => {
+        const next = new Set(prev);
+        if (isFav) next.add(recipe.id); else next.delete(recipe.id);
+        return next;
+      });
+    }
+  }
+
+  const displayed = useMemo(() => {
+    let filtered = recipes;
+    if (ageFilter === 'fav') {
+      filtered = filtered.filter((r) => favouriteIds.has(r.id));
+    } else if (ageFilter !== 'all') {
+      filtered = filtered.filter((r) => r.ageStage === ageFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((r) => r.title[language].toLowerCase().includes(q));
+    }
+    return filtered.slice(0, 20);
+  }, [recipes, ageFilter, favouriteIds, searchQuery, language]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -75,21 +121,28 @@ export function MealPlanContent({ onProfilePress }: Props) {
       const months =
         (new Date().getFullYear() - birth.getFullYear()) * 12 +
         (new Date().getMonth() - birth.getMonth());
-      const age = months < 12
-        ? (language === 'sq-AL' ? `${months} muaj` : `${months}m`)
-        : (language === 'sq-AL' ? `${Math.floor(months / 12)} vjeç` : `${Math.floor(months / 12)}y`);
+      const age =
+        months < 12
+          ? language === 'sq-AL' ? `${months} muaj` : `${months}m`
+          : language === 'sq-AL' ? `${Math.floor(months / 12)} vjeç` : `${Math.floor(months / 12)}y`;
       return `${bn} · ${age}`;
     }
     return null;
   })();
 
+  const FILTERS: Array<{ id: FilterId; label: string }> = [
+    { id: 'all',   label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
+    { id: '4-6m',  label: '4-6m' },
+    { id: '6-8m',  label: '6-8m' },
+    { id: '9-12m', label: '9-12m' },
+    { id: '12m+',  label: '12m+' },
+    { id: 'fav',   label: language === 'sq-AL' ? '♡ Ruajtura' : '♡ Saved' },
+  ];
+
   return (
     <>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
-      >
-        {/* ── Header ─────────────────────────────────────────────────── */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+        {/* ── Header ── */}
         <View style={s.header}>
           <View style={s.headerCopy}>
             <Text style={s.screenTitle}>{t[language].home.title}</Text>
@@ -99,11 +152,7 @@ export function MealPlanContent({ onProfilePress }: Props) {
               <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
             )}
           </View>
-          <Pressable
-            style={s.avatarBtn}
-            onPress={onProfilePress}
-            hitSlop={8}
-          >
+          <Pressable style={s.avatarBtn} onPress={onProfilePress} hitSlop={8}>
             {user ? (
               <Text style={s.avatarInitials}>
                 {(userProfile?.displayName ?? user.displayName ?? '?')
@@ -113,27 +162,22 @@ export function MealPlanContent({ onProfilePress }: Props) {
                   .join('')}
               </Text>
             ) : (
-              <IconButton icon="account-circle-outline" size={24} iconColor="#1A1714" style={s.icon0} />
+              <IconButton icon="account-circle-outline" size={24} iconColor="#FFFFFF" style={s.icon0} />
             )}
           </Pressable>
         </View>
 
-        {/* ── Hero card ──────────────────────────────────────────────── */}
+        {/* ── Hero card ── */}
         <Surface style={s.heroCard} elevation={0}>
           <View style={s.heroGlowLarge} />
           <View style={s.heroGlowSmall} />
-
           <View style={s.heroCopy}>
             <Text style={s.heroEyebrow}>{t[language].home.heroTitle}</Text>
             <Text style={s.heroBody}>
-              {isFirebaseConfigured
-                ? t[language].home.heroConnected
-                : t[language].home.heroMissing}
+              {isFirebaseConfigured ? t[language].home.heroConnected : t[language].home.heroMissing}
             </Text>
             {!isFirebaseConfigured ? (
-              <Text style={s.heroMeta}>
-                {t[language].home.heroMissingMeta(missingFirebaseKeys.length)}
-              </Text>
+              <Text style={s.heroMeta}>{t[language].home.heroMissingMeta(missingFirebaseKeys.length)}</Text>
             ) : (
               <Text style={s.heroMeta}>{t[language].home.heroReadyMeta}</Text>
             )}
@@ -144,42 +188,67 @@ export function MealPlanContent({ onProfilePress }: Props) {
               <Text style={s.heroBtnLabel}>{t[language].common.fillInData}</Text>
             </Pressable>
           </View>
-
           <View style={s.heroArt}>
-            <View style={s.chefBubble}>
-              <Text style={s.chefEmoji}>👩‍🍳</Text>
-            </View>
+            <View style={s.chefBubble}><Text style={s.chefEmoji}>👩‍🍳</Text></View>
             <View style={s.snackRow}>
               {['🥕', '🍲', '🥣'].map((e) => (
-                <View key={e} style={s.snack}>
-                  <Text style={s.snackEmoji}>{e}</Text>
-                </View>
+                <View key={e} style={s.snack}><Text style={s.snackEmoji}>{e}</Text></View>
               ))}
             </View>
           </View>
         </Surface>
 
-        {/* ── Section header ─────────────────────────────────────────── */}
+        {/* ── Section header ── */}
         <View style={s.sectionRow}>
           <Text style={s.sectionTitle}>{t[language].home.mealsTitle}</Text>
           <Text style={s.seeAll}>{t[language].common.seeAll}</Text>
         </View>
 
-        {/* ── States ─────────────────────────────────────────────────── */}
+        {/* ── Search bar ── */}
+        <View style={s.searchBar}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={language === 'sq-AL' ? 'Kërko receta...' : 'Search recipes...'}
+            placeholderTextColor="#B0A9A3"
+            style={s.searchInput}
+          />
+          {searchQuery !== '' && (
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Text style={s.searchClear}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* ── Filter chips ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {FILTERS.map((f) => (
+            <Pressable
+              key={f.id}
+              style={[s.filterChip, ageFilter === f.id && s.filterChipOn]}
+              onPress={() => setAgeFilter(f.id)}
+            >
+              <Text style={[s.filterChipText, ageFilter === f.id && s.filterChipTextOn]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── States ── */}
         {loading && (
           <Surface style={s.noticeCard} elevation={0}>
             <Text style={s.noticeTitle}>{t[language].common.loadingRecipes}</Text>
             <Text style={s.noticeBody}>{t[language].common.loadingRecipesBody}</Text>
           </Surface>
         )}
-
         {error != null && (
           <Surface style={s.noticeCard} elevation={0}>
             <Text style={s.noticeTitle}>{t[language].common.recipeSyncUnavailable}</Text>
             <Text style={s.noticeBody}>{error}</Text>
           </Surface>
         )}
-
         {!loading && error == null && recipes.length === 0 && (
           <Surface style={s.noticeCard} elevation={0}>
             <Text style={s.noticeTitle}>
@@ -192,26 +261,45 @@ export function MealPlanContent({ onProfilePress }: Props) {
             </Text>
           </Surface>
         )}
+        {!loading && error == null && recipes.length > 0 && displayed.length === 0 && (
+          <Surface style={s.noticeCard} elevation={0}>
+            <Text style={s.noticeTitle}>
+              {language === 'sq-AL' ? 'Nuk ka rezultate' : 'No results'}
+            </Text>
+            <Text style={s.noticeBody}>
+              {ageFilter === 'fav'
+                ? (language === 'sq-AL' ? 'Nuk keni receta të ruajtura ende.' : 'No saved recipes yet.')
+                : (language === 'sq-AL' ? 'Nuk ka receta për këtë filtër.' : 'No recipes for this filter.')}
+            </Text>
+          </Surface>
+        )}
 
-        {/* ── Recipe cards ───────────────────────────────────────────── */}
+        {/* ── Recipe cards ── */}
         <View style={s.cardStack}>
           {displayed.map((recipe, i) => {
             const p = paletteFor(i);
             const imgUrl = recipe.image?.downloadUrl ?? recipe.image?.sourceUrl ?? null;
             const dur = durationLabel(recipe);
+            const isFav = favouriteIds.has(recipe.id);
             return (
               <Pressable key={recipe.id} onPress={() => setSelected(recipe)}>
-                <Surface
-                  style={[s.mealCard, { backgroundColor: p.bg }]}
-                  elevation={0}
-                >
+                <Surface style={[s.mealCard, { backgroundColor: p.bg }]} elevation={0}>
                   <View style={[s.mealSquare, { backgroundColor: p.accent }]} />
                   <View style={[s.mealPill,   { backgroundColor: `${p.accent}CC` }]} />
 
                   <View style={s.mealActions}>
-                    <View style={s.actionBubble}>
-                      <IconButton icon="heart-outline" size={18} iconColor="#111" style={s.icon0} />
-                    </View>
+                    <Pressable
+                      style={s.actionBubble}
+                      onPress={(e) => { e.stopPropagation(); void toggleFavourite(recipe); }}
+                      hitSlop={8}
+                    >
+                      <IconButton
+                        icon={isFav ? 'heart' : 'heart-outline'}
+                        size={18}
+                        iconColor={isFav ? '#E05252' : '#111'}
+                        style={s.icon0}
+                      />
+                    </Pressable>
                     <View style={s.actionBubble}>
                       <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
                     </View>
@@ -221,31 +309,19 @@ export function MealPlanContent({ onProfilePress }: Props) {
                     <Text style={s.mealTitle}>{recipe.title[language]}</Text>
                     {dur !== '' && (
                       <View style={s.durationPill}>
-                        <IconButton
-                          icon="clock-time-four-outline"
-                          size={16}
-                          iconColor="#111"
-                          style={s.icon0}
-                        />
+                        <IconButton icon="clock-time-four-outline" size={16} iconColor="#111" style={s.icon0} />
                         <Text style={s.durationText}>{dur}</Text>
                       </View>
                     )}
                   </View>
 
-                  {/* Food image or emoji */}
                   <View style={s.platePos}>
                     <View style={s.plateShadow} />
                     <View style={s.plateCircle}>
                       {imgUrl != null ? (
-                        <Image
-                          source={{ uri: imgUrl }}
-                          style={s.plateImg}
-                          resizeMode="cover"
-                        />
+                        <Image source={{ uri: imgUrl }} style={s.plateImg} resizeMode="cover" />
                       ) : (
-                        <Text style={s.plateEmoji}>
-                          {emojiForMealType(recipe.mealType)}
-                        </Text>
+                        <Text style={s.plateEmoji}>{emojiForMealType(recipe.mealType)}</Text>
                       )}
                     </View>
                   </View>
@@ -262,14 +338,8 @@ export function MealPlanContent({ onProfilePress }: Props) {
 }
 
 const s = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 20,
-    gap: 18,
-  },
+  scroll: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 20, gap: 18 },
 
-  // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   headerCopy: { flex: 1 },
   screenTitle: { fontSize: 38, lineHeight: 42, fontWeight: '800', letterSpacing: -1.4, color: '#111111' },
@@ -282,7 +352,6 @@ const s = StyleSheet.create({
   },
   avatarInitials: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
 
-  // Hero
   heroCard:      { borderRadius: 30, backgroundColor: '#FFF5A7', padding: 20, flexDirection: 'row', overflow: 'hidden', minHeight: 198 },
   heroGlowLarge: { position: 'absolute', right: -30, top: 10, width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFE679', opacity: 0.55 },
   heroGlowSmall: { position: 'absolute', left: -25, bottom: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: '#FFFCE0', opacity: 0.9 },
@@ -299,18 +368,34 @@ const s = StyleSheet.create({
   snack:         { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFCE8', alignItems: 'center', justifyContent: 'center' },
   snackEmoji:    { fontSize: 18 },
 
-  // Section
   sectionRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   seeAll:        { fontSize: 18, color: '#6A6475' },
 
-  // Notice
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFFD9',
+    borderRadius: 18, paddingHorizontal: 16,
+    height: 52, gap: 10,
+  },
+  searchIcon: { fontSize: 16 },
+  searchInput: { flex: 1, fontSize: 16, color: '#1A1714' },
+  searchClear: { fontSize: 14, color: '#9E9590', paddingLeft: 8 },
+
+  filterRow: { gap: 10, paddingVertical: 4 },
+  filterChip: {
+    borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10,
+    backgroundColor: '#FFFFFFD9',
+  },
+  filterChipOn: { backgroundColor: '#1A1714' },
+  filterChipText: { fontSize: 14, fontWeight: '700', color: '#3D3530' },
+  filterChipTextOn: { color: '#FFFFFF' },
+
   cardStack: { gap: 14 },
   noticeCard:    { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 16, gap: 6 },
   noticeTitle:   { fontSize: 17, fontWeight: '700', color: '#111111' },
   noticeBody:    { fontSize: 14, lineHeight: 20, color: '#605B71' },
 
-  // Meal card
   mealCard:     { minHeight: 176, borderRadius: 30, padding: 18, overflow: 'hidden', justifyContent: 'space-between' },
   mealSquare:   { position: 'absolute', width: 64, height: 64, right: 110, top: 58, borderRadius: 18, transform: [{ rotate: '18deg' }], opacity: 0.55 },
   mealPill:     { position: 'absolute', width: 98, height: 38, left: 18, bottom: 20, borderRadius: 22, opacity: 0.42 },
@@ -322,7 +407,6 @@ const s = StyleSheet.create({
   durationPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FFF0', borderRadius: 999, paddingLeft: 6, paddingRight: 14, paddingVertical: 5 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
 
-  // Plate
   platePos:    { position: 'absolute', right: 18, bottom: 16 },
   plateShadow: { position: 'absolute', top: 8, left: 8, width: 126, height: 126, borderRadius: 63, backgroundColor: '#00000018' },
   plateCircle: { width: 126, height: 126, borderRadius: 63, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
