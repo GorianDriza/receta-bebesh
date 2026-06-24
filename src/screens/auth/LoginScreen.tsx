@@ -16,7 +16,11 @@ import {
   signInWithCredential,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
+import {
+  makeRedirectUri,
+  ResponseType,
+  useAuthRequest,
+} from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { useLanguage } from '../../providers/LanguageProvider';
@@ -26,6 +30,12 @@ WebBrowser.maybeCompleteAuthSession();
 
 const IOS_CLIENT_ID     = '354632227539-839uvpk9bspdn34kivvf83esa7ne84qk.apps.googleusercontent.com';
 const ANDROID_CLIENT_ID = '354632227539-ouga11qrgo37u9e0nns6eq75o2n84b8k.apps.googleusercontent.com';
+
+const GOOGLE_DISCOVERY = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenEndpoint: 'https://oauth2.googleapis.com/token',
+  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+};
 
 const L = {
   'sq-AL': {
@@ -73,10 +83,13 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [resetMsg, setResetMsg] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
 
-  const [request, response, promptGoogleAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: IOS_CLIENT_ID,
-    androidClientId: ANDROID_CLIENT_ID,
-  });
+  const redirectUri = makeRedirectUri({ scheme: 'com.driza.recetabebesh' });
+  const clientId = Platform.OS === 'android' ? ANDROID_CLIENT_ID : IOS_CLIENT_ID;
+
+  const [request, response, promptGoogleAsync] = useAuthRequest(
+    { clientId, scopes: ['openid', 'profile', 'email'], redirectUri, responseType: ResponseType.IdToken },
+    GOOGLE_DISCOVERY,
+  );
 
   useEffect(() => {
     if (response?.type === 'success') {
