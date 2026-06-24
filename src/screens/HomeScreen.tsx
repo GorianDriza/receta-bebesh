@@ -6,6 +6,7 @@ import { IconButton, Surface, Text } from 'react-native-paper';
 import { JournalContent } from './JournalContent';
 import { LearningContent } from './LearningContent';
 import { MealPlanContent } from './MealPlanContent';
+import { PlannerContent } from './PlannerContent';
 import { ProfileModal } from './ProfileModal';
 import { SplashScreen } from './SplashScreen';
 
@@ -30,10 +31,11 @@ export function HomeScreen() {
       <View style={s.glowBottom} />
 
       <View style={s.screenArea}>
-        {activeTab === 'meals'                               && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
-        {activeTab === 'journal'                             && <JournalContent />}
-        {activeTab === 'learn'                               && <LearningContent />}
-        {(activeTab === 'planner' || activeTab === 'spark') && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
+        {activeTab === 'meals'   && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
+        {activeTab === 'planner' && <PlannerContent />}
+        {activeTab === 'spark'   && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
+        {activeTab === 'journal' && <JournalContent />}
+        {activeTab === 'learn'   && <LearningContent />}
       </View>
 
       {/* Bottom nav */}

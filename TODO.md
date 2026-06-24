@@ -42,8 +42,11 @@
 - [x] Save favourite recipes per user (`users/<uid>/favourites/<recipeId>`).
 - [x] Heart button on recipe cards — toggles saved (filled red ♥ when saved).
 - [x] Filter chip "♡ Saved" shows only favourited recipes.
-- [ ] Weekly meal planner: assign recipes to days / meal types.
-- [ ] Persist planner data to Firebase per user.
+- [x] Weekly meal planner: assign recipes to days / meal types (Planner tab).
+- [x] Week navigation (← / → week), day selector with activity dots.
+- [x] Recipe picker modal with search (assigns to breakfast/lunch/dinner/snack slot).
+- [x] Persist planner data to Firebase: `users/<uid>/planner/<weekKey>/<day>/<meal>`.
+- [x] Remove recipe from slot (× button).
 
 ## Firebase
 
