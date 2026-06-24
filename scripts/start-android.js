@@ -30,7 +30,7 @@ const emulator = sdkTool(
   isWindows ? 'emulator/emulator.exe' : 'emulator/emulator',
   'emulator',
 );
-const expoCli = isWindows ? 'expo.cmd' : 'expo';
+const expoCli = isWindows ? 'cmd.exe' : 'npx';
 
 function runCapture(command, args) {
   return execFileSync(command, args, {
@@ -67,6 +67,22 @@ function getBootCompleted(serial) {
     return runCapture(adb, ['-s', serial, 'shell', 'getprop', 'sys.boot_completed']);
   } catch {
     return '';
+  }
+}
+
+function ensureReverse(serial, remotePort, localPort) {
+  try {
+    runCapture(adb, [
+      '-s',
+      serial,
+      'reverse',
+      `tcp:${remotePort}`,
+      `tcp:${localPort}`,
+    ]);
+  } catch (error) {
+    throw new Error(
+      `Failed to configure adb reverse for ${serial} on port ${remotePort}.`,
+    );
   }
 }
 
@@ -154,8 +170,13 @@ async function main() {
 
   const serial = await ensureAndroidDevice();
   console.log(`Android device ready: ${serial}`);
+  ensureReverse(serial, 8081, 8081);
 
-  const expoProcess = spawn(expoCli, ['start', '--android'], {
+  const expoArgs = isWindows
+    ? ['/d', '/s', '/c', 'npx expo start --dev-client --localhost --android']
+    : ['expo', 'start', '--dev-client', '--localhost', '--android'];
+
+  const expoProcess = spawn(expoCli, expoArgs, {
     stdio: 'inherit',
     env,
   });
