@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { SlotSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import {
   DayKey,
@@ -219,9 +220,11 @@ export function PlannerContent() {
         )}
 
         {loading && (
-          <Text style={s.loadingText}>
-            {language === 'sq-AL' ? 'Duke ngarkuar...' : 'Loading...'}
-          </Text>
+          <View style={s.slotList}>
+            <SlotSkeleton />
+            <SlotSkeleton />
+            <SlotSkeleton />
+          </View>
         )}
       </ScrollView>
 

@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { fetchRecipes, RecipeRecord, RecipeStage } from '../lib/recipes';
@@ -238,10 +239,11 @@ export function MealPlanContent({ onProfilePress }: Props) {
 
         {/* ── States ── */}
         {loading && (
-          <Surface style={s.noticeCard} elevation={0}>
-            <Text style={s.noticeTitle}>{t[language].common.loadingRecipes}</Text>
-            <Text style={s.noticeBody}>{t[language].common.loadingRecipesBody}</Text>
-          </Surface>
+          <View style={s.cardStack}>
+            <RecipeCardSkeleton />
+            <RecipeCardSkeleton />
+            <RecipeCardSkeleton />
+          </View>
         )}
         {error != null && (
           <Surface style={s.noticeCard} elevation={0}>

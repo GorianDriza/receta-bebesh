@@ -13,7 +13,7 @@
 - [x] Tap recipe card → full-screen article modal (image, ingredients, steps, source link).
 - [ ] Replace emoji plates with real recipe photos from Firebase Storage (needs paid plan or direct URL mirror).
 - [x] Quick Ideas tab (Spark): 3 random recipes from baby's age stage, shuffle button.
-- [ ] Add loading skeleton / empty / error states for all remote data.
+- [x] Loading skeletons (RecipeCardSkeleton, SlotSkeleton) — animated pulse in MealPlan, Planner, Quick tabs.
 - [x] Add age-stage filter chips to Meal Plan screen (All / 4-6m / 6-8m / 9-12m / 12m+ / Saved).
 - [x] Default filter auto-set from baby's age stage (profile birthdate).
 - [x] Add search bar to Meal Plan screen (client-side title search).

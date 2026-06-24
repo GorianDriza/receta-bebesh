@@ -2,6 +2,7 @@ import { startTransition, useCallback, useEffect, useMemo, useState } from 'reac
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { computeAgeStage } from '../lib/users';
@@ -92,11 +93,11 @@ export function QuickContent() {
         </View>
 
         {loading && (
-          <Surface style={s.noticeCard} elevation={0}>
-            <Text style={s.noticeText}>
-              {language === 'sq-AL' ? 'Duke ngarkuar...' : 'Loading...'}
-            </Text>
-          </Surface>
+          <View style={s.cardList}>
+            <RecipeCardSkeleton />
+            <RecipeCardSkeleton />
+            <RecipeCardSkeleton />
+          </View>
         )}
 
         {!loading && !isFirebaseConfigured && (
