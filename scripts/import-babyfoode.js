@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { initializeApp, getApp, getApps } = require('firebase/app');
-const { getDatabase, ref, update } = require('firebase/database');
+const { getDatabase, goOffline, ref, update } = require('firebase/database');
 
 const FIREBASE_KEYS = [
   'EXPO_PUBLIC_FIREBASE_API_KEY',
@@ -17,6 +17,8 @@ const SOURCE_SITE = 'babyfoode.com';
 const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const HTTP_TIMEOUT_MS = 30000;
+const DATABASE_TIMEOUT_MS = 45000;
 
 function loadDotEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -257,12 +259,24 @@ function createLocalizedTextList(englishValues, albanianValues) {
 }
 
 async function fetchHtml(url) {
-  const response = await fetch(url, {
-    headers: {
-      'user-agent': 'receta-bebesh-importer/1.0',
-      accept: 'text/html,application/xhtml+xml',
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, HTTP_TIMEOUT_MS);
+
+  let response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        'user-agent': 'receta-bebesh-importer/1.0',
+        accept: 'text/html,application/xhtml+xml',
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.status}`);
@@ -303,42 +317,54 @@ async function translateRecipeWithOpenAI(recipe) {
     return recipe;
   }
 
-  const response = await fetch(OPENAI_RESPONSES_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text:
-                'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: JSON.stringify({
-                title: recipe.title.en,
-                summary: recipe.summary.en,
-                ingredients: recipe.ingredients.en,
-                steps: recipe.steps.en,
-              }),
-            },
-          ],
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, HTTP_TIMEOUT_MS);
+
+  let response;
+
+  try {
+    response = await fetch(OPENAI_RESPONSES_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: 'system',
+            content: [
+              {
+                type: 'input_text',
+                text:
+                  'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
+              },
+            ],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: JSON.stringify({
+                  title: recipe.title.en,
+                  summary: recipe.summary.en,
+                  ingredients: recipe.ingredients.en,
+                  steps: recipe.steps.en,
+                }),
+              },
+            ],
+          },
+        ],
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`OpenAI translation failed: ${response.status}`);
@@ -469,6 +495,7 @@ async function importRecipes(limit) {
   loadDotEnvFile(path.join(process.cwd(), '.env'));
   requireFirebaseEnv();
 
+  console.log(`Fetching source index from ${SOURCE_ROOT}...`);
   const homePageHtml = await fetchHtml(SOURCE_ROOT);
   const recipeLinks = extractRecipeLinks(homePageHtml).slice(0, limit);
 
@@ -479,6 +506,7 @@ async function importRecipes(limit) {
   const records = [];
 
   for (const url of recipeLinks) {
+    console.log(`Parsing recipe page: ${url}`);
     const pageHtml = await fetchHtml(url);
     const jsonLdRecipes = extractJsonLdRecipes(pageHtml);
     const recipeNode = jsonLdRecipes[0];
@@ -505,7 +533,20 @@ async function importRecipes(limit) {
     updates[`recipes/${recipe.id}`] = recipe;
   }
 
-  await update(ref(database), updates);
+  console.log(`Writing ${records.length} recipes to Firebase...`);
+  await Promise.race([
+    update(ref(database), updates),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            `Firebase write timed out after ${DATABASE_TIMEOUT_MS}ms.`,
+          ),
+        );
+      }, DATABASE_TIMEOUT_MS);
+    }),
+  ]);
+  goOffline(database);
 
   console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
 
@@ -529,6 +570,7 @@ async function main() {
   }
 
   await importRecipes(limit);
+  process.exit(0);
 }
 
 main().catch((error) => {
