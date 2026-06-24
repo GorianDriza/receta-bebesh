@@ -13,6 +13,7 @@ import { Text } from 'react-native-paper';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { createUserProfile } from '../../lib/users';
+import { DatePickerField } from '../../components/DatePickerField';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { AuthInput } from './AuthInput';
 
@@ -23,7 +24,6 @@ const L = {
     name: 'Emri juaj',
     babyName: 'Emri i bebës',
     babyBirthdate: 'Datëlindja e bebës',
-    bdHelp: 'Formati: VVVV-MM-DD (p.sh. 2025-10-15)',
     email: 'Email',
     password: 'Fjalëkalimi',
     passHelp: 'Minimum 6 karaktere',
@@ -41,7 +41,6 @@ const L = {
     name: 'Your name',
     babyName: "Baby's name",
     babyBirthdate: "Baby's birthdate",
-    bdHelp: 'Format: YYYY-MM-DD (e.g. 2025-10-15)',
     email: 'Email',
     password: 'Password',
     passHelp: 'Minimum 6 characters',
@@ -149,13 +148,11 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
                 onChangeText={setBabyName}
                 autoCapitalize="words"
               />
-              <AuthInput
+              <DatePickerField
                 label={l.babyBirthdate}
                 value={babyBd}
-                onChangeText={setBabyBd}
-                keyboardType="numbers-and-punctuation"
-                autoCapitalize="none"
-                helperText={l.bdHelp}
+                onChange={setBabyBd}
+                language={language}
               />
               <AuthInput
                 label={l.email}

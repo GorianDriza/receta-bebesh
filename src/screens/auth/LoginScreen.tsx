@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,10 +10,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { AuthInput } from './AuthInput';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const IOS_CLIENT_ID    = '354632227539-839uvpk9bspdn34kivvf83esa7ne84qk.apps.googleusercontent.com';
+const ANDROID_CLIENT_ID = '354632227539-ouga11qrgo37u9e0nns6eq75o2n84b8k.apps.googleusercontent.com';
 
 const L = {
   'sq-AL': {
@@ -22,12 +29,14 @@ const L = {
     email: 'Email',
     password: 'Fjalëkalimi',
     loginBtn: 'Hyni',
+    googleBtn: 'Vazhdo me Google',
     noAccount: 'Nuk keni llogari?',
     signUpLink: 'Regjistrohuni',
     forgot: 'Keni harruar fjalëkalimin?',
     resetSent: 'Email rivendosjeje u dërgua!',
     enterEmailFirst: 'Vendosni emailin e parë',
     continueGuest: 'Vazhdo si vizitor',
+    or: 'ose',
   },
   en: {
     title: 'Welcome back 👶',
@@ -35,12 +44,14 @@ const L = {
     email: 'Email',
     password: 'Password',
     loginBtn: 'Sign In',
+    googleBtn: 'Continue with Google',
     noAccount: "Don't have an account?",
     signUpLink: 'Sign Up',
     forgot: 'Forgot your password?',
     resetSent: 'Password reset email sent!',
     enterEmailFirst: 'Enter your email first',
     continueGuest: 'Continue as guest',
+    or: 'or',
   },
 } as const;
 
@@ -50,12 +61,31 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const { language } = useLanguage();
   const l = L[language];
 
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [resetMsg, setResetMsg]   = useState<string | null>(null);
-  const [showPass, setShowPass]   = useState(false);
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+  const [showPass, setShowPass] = useState(false);
+
+  const [request, response, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: IOS_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params.id_token;
+      if (!firebaseAuth || !idToken) return;
+      setLoading(true);
+      const credential = GoogleAuthProvider.credential(idToken);
+      signInWithCredential(firebaseAuth, credential)
+        .catch((err: any) => setError(mapAuthError(err.code ?? '', language)))
+        .finally(() => setLoading(false));
+    } else if (response?.type === 'error') {
+      setError(mapAuthError('', language));
+    }
+  }, [response, language]);
 
   async function handleLogin() {
     if (!firebaseAuth) return;
@@ -152,6 +182,23 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
             <Pressable onPress={handleForgotPassword} hitSlop={8}>
               <Text style={s.forgotLink}>{l.forgot}</Text>
             </Pressable>
+
+            {/* Divider */}
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>{l.or}</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            {/* Google Sign-In */}
+            <Pressable
+              style={[s.googleBtn, (!request || loading) && s.btnDisabled]}
+              onPress={() => { setError(null); void promptGoogleAsync(); }}
+              disabled={!request || loading}
+            >
+              <Text style={s.googleIcon}>G</Text>
+              <Text style={s.googleLabel}>{l.googleBtn}</Text>
+            </Pressable>
           </View>
 
           {/* Sign up row */}
@@ -225,6 +272,25 @@ const s = StyleSheet.create({
   btnLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
 
   forgotLink: { fontSize: 14, color: '#6ECAC0', textAlign: 'center', fontWeight: '600' },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE8E3' },
+  dividerText: { fontSize: 13, color: '#B0A9A3', fontWeight: '600' },
+
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingVertical: 16,
+    borderWidth: 1.5,
+    borderColor: '#E0D9D3',
+  },
+  googleIcon: {
+    fontSize: 18, fontWeight: '900', color: '#4285F4',
+    width: 24, textAlign: 'center',
+  },
+  googleLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
 
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },

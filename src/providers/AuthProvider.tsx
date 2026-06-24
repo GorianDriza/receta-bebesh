@@ -1,8 +1,25 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { firebaseAuth } from '../lib/auth';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { getUserProfile, UserProfile } from '../lib/users';
+
+const PROFILE_CACHE_KEY = '@receta_bebesh/profile';
+
+async function readCachedProfile(): Promise<UserProfile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as UserProfile) : null;
+  } catch { return null; }
+}
+
+async function writeCachedProfile(p: UserProfile | null): Promise<void> {
+  try {
+    if (p) await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(p));
+    else await AsyncStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {}
+}
 
 type AuthContextValue = {
   user: User | null;
@@ -19,11 +36,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(isFirebaseConfigured);
 
   async function loadProfile(u: User) {
+    // Show cached data immediately, then update from Firebase
+    const cached = await readCachedProfile();
+    if (cached?.uid === u.uid) setUserProfile(cached);
+
     try {
       const profile = await getUserProfile(u.uid);
       setUserProfile(profile);
+      await writeCachedProfile(profile);
     } catch {
-      setUserProfile(null);
+      if (!cached) setUserProfile(null);
     }
   }
 
@@ -42,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadProfile(u);
       } else {
         setUserProfile(null);
+        await writeCachedProfile(null);
       }
       setIsLoading(false);
     });

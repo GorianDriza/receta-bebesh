@@ -68,6 +68,10 @@ module.exports = {
         projectId: 'fa366d8f-95d8-4576-bdc0-7343ecae41f6',
       },
     },
-    plugins: ['expo-localization'],
+    scheme: 'com.driza.recetabebesh',
+    plugins: [
+      'expo-localization',
+      '@react-native-community/datetimepicker',
+    ],
   },
 };

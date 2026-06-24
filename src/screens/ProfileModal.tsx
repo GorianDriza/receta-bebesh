@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chip, IconButton, Text } from 'react-native-paper';
 import { signOut } from 'firebase/auth';
 import { firebaseAuth } from '../lib/auth';
+import { DatePickerField } from '../components/DatePickerField';
 import { updateUserProfile, formatBabyAge, computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
@@ -25,7 +26,6 @@ const L = {
     displayName: 'Emri juaj',
     babyName: 'Emri i bebës',
     babyBirthdate: 'Datëlindja e bebës',
-    bdHelp: 'Formati: VVVV-MM-DD',
     language: 'Gjuha',
     ageStage: 'Faza e moshës',
     saveBtn: 'Ruaj',
@@ -42,7 +42,6 @@ const L = {
     displayName: 'Your name',
     babyName: "Baby's name",
     babyBirthdate: "Baby's birthdate",
-    bdHelp: 'Format: YYYY-MM-DD',
     language: 'Language',
     ageStage: 'Age stage',
     saveBtn: 'Save',
@@ -180,13 +179,11 @@ export function ProfileModal({ visible, onClose }: Props) {
                   onChangeText={setBabyName}
                   autoCapitalize="words"
                 />
-                <AuthInput
+                <DatePickerField
                   label={l.babyBirthdate}
                   value={babyBd}
-                  onChangeText={setBabyBd}
-                  keyboardType="numbers-and-punctuation"
-                  autoCapitalize="none"
-                  helperText={l.bdHelp}
+                  onChange={setBabyBd}
+                  language={language}
                 />
               </View>
 
