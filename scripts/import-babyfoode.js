@@ -16,7 +16,8 @@ const FIREBASE_KEYS = [
 const SOURCE_SITE = 'babyfoode.com';
 const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
-const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
 
@@ -285,33 +286,9 @@ async function fetchHtml(url) {
   return response.text();
 }
 
-function extractResponseText(payload) {
-  if (!payload || !Array.isArray(payload.output)) {
-    return null;
-  }
-
-  for (const outputItem of payload.output) {
-    if (!Array.isArray(outputItem.content)) {
-      continue;
-    }
-
-    for (const contentItem of outputItem.content) {
-      if (
-        contentItem &&
-        contentItem.type === 'output_text' &&
-        typeof contentItem.text === 'string'
-      ) {
-        return contentItem.text;
-      }
-    }
-  }
-
-  return null;
-}
-
-async function translateRecipeWithOpenAI(recipe) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL;
+async function translateRecipeWithClaude(recipe) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.ANTHROPIC_MODEL;
 
   if (!apiKey || !model) {
     return recipe;
@@ -325,39 +302,28 @@ async function translateRecipeWithOpenAI(recipe) {
   let response;
 
   try {
-    response = await fetch(OPENAI_RESPONSES_URL, {
+    response = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_VERSION,
       },
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        input: [
-          {
-            role: 'system',
-            content: [
-              {
-                type: 'input_text',
-                text:
-                  'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
-              },
-            ],
-          },
+        max_tokens: 2000,
+        system:
+          'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
+        messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'input_text',
-                text: JSON.stringify({
-                  title: recipe.title.en,
-                  summary: recipe.summary.en,
-                  ingredients: recipe.ingredients.en,
-                  steps: recipe.steps.en,
-                }),
-              },
-            ],
+            content: JSON.stringify({
+              title: recipe.title.en,
+              summary: recipe.summary.en,
+              ingredients: recipe.ingredients.en,
+              steps: recipe.steps.en,
+            }),
           },
         ],
       }),
@@ -367,14 +333,22 @@ async function translateRecipeWithOpenAI(recipe) {
   }
 
   if (!response.ok) {
-    throw new Error(`OpenAI translation failed: ${response.status}`);
+    throw new Error(`Claude translation failed: ${response.status}`);
   }
 
   const payload = await response.json();
-  const outputText = extractResponseText(payload);
+  const outputText = Array.isArray(payload.content)
+    ? payload.content
+        .filter(
+          (item) => item && item.type === 'text' && typeof item.text === 'string',
+        )
+        .map((item) => item.text)
+        .join('\n')
+        .trim()
+    : null;
 
   if (!outputText) {
-    throw new Error('OpenAI translation returned no text output.');
+    throw new Error('Claude translation returned no text output.');
   }
 
   const translated = JSON.parse(outputText);
@@ -400,7 +374,7 @@ async function translateRecipeWithOpenAI(recipe) {
     ),
     translation: {
       status: 'machine',
-      provider: `openai:${model}`,
+      provider: `claude:${model}`,
       reviewedBy: null,
     },
     updatedAt: new Date().toISOString(),
@@ -516,7 +490,7 @@ async function importRecipes(limit) {
     }
 
     const normalizedRecipe = normalizeRecipe(url, recipeNode);
-    const translatedRecipe = await translateRecipeWithOpenAI(normalizedRecipe);
+    const translatedRecipe = await translateRecipeWithClaude(normalizedRecipe);
 
     records.push(translatedRecipe);
   }
@@ -550,13 +524,13 @@ async function importRecipes(limit) {
 
   console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
 
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL) {
+  if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_MODEL) {
     console.log(
-      `Albanian translations were generated with OpenAI model ${process.env.OPENAI_MODEL}.`,
+      `Albanian translations were generated with Claude model ${process.env.ANTHROPIC_MODEL}.`,
     );
   } else {
     console.log(
-      'Albanian fields currently mirror English. Set OPENAI_API_KEY and OPENAI_MODEL to enable automatic translation.',
+      'Albanian fields currently mirror English. Set ANTHROPIC_API_KEY and ANTHROPIC_MODEL to enable automatic translation.',
     );
   }
 }
