@@ -55,6 +55,7 @@ export function MealPlanContent({ onProfilePress }: Props) {
   }, [userProfile?.babyBirthdate]);
 
   const [ageFilter, setAgeFilter] = useState<FilterId>(defaultFilter);
+  const [showAll, setShowAll]     = useState(false);
 
   // Re-apply default when profile loads
   useEffect(() => {
@@ -111,8 +112,8 @@ export function MealPlanContent({ onProfilePress }: Props) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((r) => r.title[language].toLowerCase().includes(q));
     }
-    return filtered.slice(0, 20);
-  }, [recipes, ageFilter, favouriteIds, searchQuery, language]);
+    return showAll ? filtered : filtered.slice(0, 5);
+  }, [recipes, ageFilter, favouriteIds, searchQuery, language, showAll]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -201,8 +202,17 @@ export function MealPlanContent({ onProfilePress }: Props) {
 
         {/* ── Section header ── */}
         <View style={s.sectionRow}>
-          <Text style={s.sectionTitle}>{t[language].home.mealsTitle}</Text>
-          <Text style={s.seeAll}>{t[language].common.seeAll}</Text>
+          <Text style={s.sectionTitle}>
+            {language === 'sq-AL' ? 'Recetat' : 'Recipes'}
+            {recipes.length > 0 && <Text style={s.recipeCount}> ({recipes.length})</Text>}
+          </Text>
+          <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
+            <Text style={s.seeAll}>
+              {showAll
+                ? (language === 'sq-AL' ? 'Më pak' : 'Less')
+                : t[language].common.seeAll}
+            </Text>
+          </Pressable>
         </View>
 
         {/* ── Search bar ── */}
@@ -228,7 +238,7 @@ export function MealPlanContent({ onProfilePress }: Props) {
             <Pressable
               key={f.id}
               style={[s.filterChip, ageFilter === f.id && s.filterChipOn]}
-              onPress={() => setAgeFilter(f.id)}
+              onPress={() => { setAgeFilter(f.id); setShowAll(false); }}
             >
               <Text style={[s.filterChipText, ageFilter === f.id && s.filterChipTextOn]}>
                 {f.label}
@@ -372,6 +382,7 @@ const s = StyleSheet.create({
 
   sectionRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
+  recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
   seeAll:        { fontSize: 18, color: '#6A6475' },
 
   searchBar: {
