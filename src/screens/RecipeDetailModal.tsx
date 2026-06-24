@@ -1,24 +1,69 @@
-import { Image, Linking, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { AppLanguage } from '../i18n/translations';
+import { DayKey, getISOWeekKey, PlannerMealType, setPlannerEntry } from '../lib/planner';
 import { RecipeRecord } from '../lib/recipes';
+import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
-const LABELS: Record<AppLanguage, { ingredients: string; instructions: string; source: string; min: string; noImage: string }> = {
-  'sq-AL': { ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes', source: 'Burimi', min: 'min', noImage: 'Nuk ka imazh' },
-  en:      { ingredients: 'Ingredients', instructions: 'Instructions', source: 'Source', min: 'min', noImage: 'No image' },
+const LABELS: Record<AppLanguage, {
+  ingredients: string; instructions: string; source: string;
+  min: string; noImage: string; addToPlanner: string; plannerAdded: string;
+}> = {
+  'sq-AL': {
+    ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
+    source: 'Burimi', min: 'min', noImage: 'Nuk ka imazh',
+    addToPlanner: 'Shto në Plan', plannerAdded: 'U shtua!',
+  },
+  en: {
+    ingredients: 'Ingredients', instructions: 'Instructions',
+    source: 'Source', min: 'min', noImage: 'No image',
+    addToPlanner: 'Add to Plan', plannerAdded: 'Added!',
+  },
 };
 
-type Props = {
-  recipe: RecipeRecord | null;
-  onClose: () => void;
-};
+const DAYS: Array<{ key: DayKey; sq: string; en: string }> = [
+  { key: 'mon', sq: 'Hë', en: 'Mo' }, { key: 'tue', sq: 'Ma', en: 'Tu' },
+  { key: 'wed', sq: 'Më', en: 'We' }, { key: 'thu', sq: 'En', en: 'Th' },
+  { key: 'fri', sq: 'Pr', en: 'Fr' }, { key: 'sat', sq: 'Sh', en: 'Sa' },
+  { key: 'sun', sq: 'Di', en: 'Su' },
+];
+
+const MEAL_OPTS: Array<{ key: PlannerMealType; sq: string; en: string }> = [
+  { key: 'breakfast', sq: 'Mëngjes', en: 'Breakfast' },
+  { key: 'lunch',     sq: 'Drekë',   en: 'Lunch' },
+  { key: 'dinner',    sq: 'Darkë',   en: 'Dinner' },
+  { key: 'snack',     sq: 'Meze',    en: 'Snack' },
+];
+
+type Props = { recipe: RecipeRecord | null; onClose: () => void };
 
 export function RecipeDetailModal({ recipe, onClose }: Props) {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const L = LABELS[language];
+
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [selDay, setSelDay]           = useState<DayKey>('mon');
+  const [selMeal, setSelMeal]         = useState<PlannerMealType>('lunch');
+  const [addedMsg, setAddedMsg]       = useState(false);
+
+  async function handleAddToPlanner() {
+    if (!user || !recipe) return;
+    const weekKey = getISOWeekKey(new Date());
+    await setPlannerEntry(user.uid, weekKey, selDay, selMeal, {
+      recipeId: recipe.id,
+      recipeTitle: recipe.title[language],
+      recipeImage: recipe.image?.sourceUrl ?? recipe.image?.downloadUrl ?? null,
+      addedAt: new Date().toISOString(),
+    });
+    setPlannerOpen(false);
+    setAddedMsg(true);
+    setTimeout(() => setAddedMsg(false), 2000);
+  }
 
   const imageUrl = recipe?.image?.downloadUrl ?? recipe?.image?.sourceUrl ?? null;
   const duration = recipe?.totalMinutes ?? recipe?.prepMinutes ?? null;
@@ -113,8 +158,69 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
                 </Text>
               </>
             ) : null}
+
+            {/* Add to Planner */}
+            {user != null && (
+              <>
+                <View style={s.divider} />
+                <Pressable
+                  style={s.plannerBtn}
+                  onPress={() => setPlannerOpen(true)}
+                >
+                  <Text style={s.plannerBtnLabel}>
+                    {addedMsg ? `✓ ${L.plannerAdded}` : `📅 ${L.addToPlanner}`}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </Surface>
         </ScrollView>
+
+        {/* Day / Meal picker overlay */}
+        {plannerOpen && (
+          <View style={s.pickerOverlay}>
+            <Pressable style={s.pickerBg} onPress={() => setPlannerOpen(false)} />
+            <View style={s.pickerSheet}>
+              <Text style={s.pickerTitle}>
+                {language === 'sq-AL' ? 'Zgjidhni ditën dhe vaktin' : 'Choose day and meal'}
+              </Text>
+
+              <View style={s.pickerRow}>
+                {DAYS.map((d) => (
+                  <Pressable
+                    key={d.key}
+                    style={[s.pickerPill, selDay === d.key && s.pickerPillOn]}
+                    onPress={() => setSelDay(d.key)}
+                  >
+                    <Text style={[s.pickerPillText, selDay === d.key && s.pickerPillTextOn]}>
+                      {language === 'sq-AL' ? d.sq : d.en}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={s.pickerRow}>
+                {MEAL_OPTS.map((m) => (
+                  <Pressable
+                    key={m.key}
+                    style={[s.pickerPill, selMeal === m.key && s.pickerPillOn]}
+                    onPress={() => setSelMeal(m.key)}
+                  >
+                    <Text style={[s.pickerPillText, selMeal === m.key && s.pickerPillTextOn]}>
+                      {language === 'sq-AL' ? m.sq : m.en}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Pressable style={s.pickerAddBtn} onPress={handleAddToPlanner}>
+                <Text style={s.pickerAddBtnLabel}>
+                  {language === 'sq-AL' ? 'Shto' : 'Add'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -229,9 +335,34 @@ const s = StyleSheet.create({
   stepText: { flex: 1, fontSize: 15, lineHeight: 24, color: '#39354A' },
 
   // Source
-  sourceLink: {
-    fontSize: 13,
-    color: '#6ECAC0',
-    textDecorationLine: 'underline',
+  sourceLink: { fontSize: 13, color: '#6ECAC0', textDecorationLine: 'underline' },
+
+  // Add to Planner button
+  plannerBtn: {
+    backgroundColor: '#6ECAC0', borderRadius: 999,
+    paddingVertical: 16, alignItems: 'center',
   },
+  plannerBtnLabel: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+
+  // Day/meal picker overlay
+  pickerOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'flex-end', zIndex: 10 },
+  pickerBg: { ...StyleSheet.absoluteFill, backgroundColor: '#00000044' },
+  pickerSheet: {
+    backgroundColor: '#FFF9F5', borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    padding: 24, gap: 16,
+  },
+  pickerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1714', textAlign: 'center' },
+  pickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  pickerPill: {
+    borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,
+    backgroundColor: '#F0EDE9',
+  },
+  pickerPillOn: { backgroundColor: '#1A1714' },
+  pickerPillText: { fontSize: 14, fontWeight: '700', color: '#3D3530' },
+  pickerPillTextOn: { color: '#FFFFFF' },
+  pickerAddBtn: {
+    backgroundColor: '#6ECAC0', borderRadius: 999,
+    paddingVertical: 18, alignItems: 'center', marginTop: 4,
+  },
+  pickerAddBtnLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
 });
