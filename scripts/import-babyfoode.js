@@ -120,6 +120,23 @@ function extractGeminiText(payload) {
   return null;
 }
 
+function extractJsonObject(text) {
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+
+  if (fencedMatch) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return text.slice(firstBrace, lastBrace + 1);
+  }
+
+  return text;
+}
+
 function stripHtml(value) {
   return htmlDecode(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 }
@@ -365,7 +382,7 @@ async function translateRecipeWithGemini(recipe) {
     throw new Error('Gemini translation returned no text output.');
   }
 
-  const translated = JSON.parse(outputText);
+  const translated = JSON.parse(extractJsonObject(outputText));
 
   return {
     ...recipe,
