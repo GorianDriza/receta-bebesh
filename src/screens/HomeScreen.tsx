@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chip, IconButton, Surface, Text } from 'react-native-paper';
 
 import { AppLanguage } from '../i18n/translations';
 import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
+import { fetchRecipes, RecipeMealType, RecipeRecord } from '../lib/recipes';
 import { useLanguage } from '../providers/LanguageProvider';
 
 type MealCard = {
@@ -188,6 +189,9 @@ const bottomTabs = [
 export function HomeScreen() {
   const { deviceLanguage, language, setLanguage, t } = useLanguage();
   const [selectedTopic, setSelectedTopic] = useState<LearningTopic>('All');
+  const [remoteRecipes, setRemoteRecipes] = useState<RecipeRecord[]>([]);
+  const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
+  const [recipesError, setRecipesError] = useState<string | null>(null);
 
   const visibleLearningCards = useMemo(() => {
     if (selectedTopic === 'All') {
@@ -197,9 +201,62 @@ export function HomeScreen() {
     return learningCards.filter((card) => card.topic === selectedTopic);
   }, [selectedTopic]);
 
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadRecipes() {
+      setIsLoadingRecipes(true);
+      setRecipesError(null);
+
+      try {
+        const recipes = await fetchRecipes();
+
+        if (!isMounted) {
+          return;
+        }
+
+        startTransition(() => {
+          setRemoteRecipes(recipes);
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setRecipesError(
+          error instanceof Error ? error.message : 'Unable to load recipes.',
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingRecipes(false);
+        }
+      }
+    }
+
+    void loadRecipes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const firebaseMessage = isFirebaseConfigured
     ? t[language].home.heroConnected
     : t[language].home.heroMissing;
+
+  const displayedMeals = useMemo(() => {
+    if (remoteRecipes.length === 0) {
+      return featuredMeals;
+    }
+
+    return remoteRecipes.slice(0, 3).map((recipe, index) =>
+      mapRecipeToMealCard(recipe, language, index),
+    );
+  }, [language, remoteRecipes]);
 
   const languageOptions: Array<{
     id: AppLanguage;
@@ -319,7 +376,27 @@ export function HomeScreen() {
         </View>
 
         <View style={styles.cardStack}>
-          {featuredMeals.map((meal) => (
+          {isLoadingRecipes ? (
+            <Surface style={styles.dataNoticeCard} elevation={0}>
+              <Text style={styles.dataNoticeTitle}>
+                {t[language].common.loadingRecipes}
+              </Text>
+              <Text style={styles.dataNoticeBody}>
+                {t[language].common.loadingRecipesBody}
+              </Text>
+            </Surface>
+          ) : null}
+
+          {recipesError ? (
+            <Surface style={styles.dataNoticeCard} elevation={0}>
+              <Text style={styles.dataNoticeTitle}>
+                {t[language].common.recipeSyncUnavailable}
+              </Text>
+              <Text style={styles.dataNoticeBody}>{recipesError}</Text>
+            </Surface>
+          ) : null}
+
+          {displayedMeals.map((meal) => (
             <Surface
               key={meal.id}
               style={[styles.mealCard, { backgroundColor: meal.backgroundColor }]}
@@ -1199,4 +1276,78 @@ const styles = StyleSheet.create({
   bottomDockIcon: {
     margin: 0,
   },
+  dataNoticeCard: {
+    borderRadius: 24,
+    backgroundColor: '#FFFFFFD9',
+    padding: 16,
+    gap: 6,
+  },
+  dataNoticeTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  dataNoticeBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#605B71',
+  },
 });
+
+function mapRecipeToMealCard(
+  recipe: RecipeRecord,
+  language: AppLanguage,
+  index: number,
+): MealCard {
+  const palette = [
+    {
+      backgroundColor: '#E5FF9A',
+      accentColor: '#D4F768',
+    },
+    {
+      backgroundColor: '#CFFFD6',
+      accentColor: '#B7F4C2',
+    },
+    {
+      backgroundColor: '#D9CCFF',
+      accentColor: '#C7B7FB',
+    },
+  ] as const;
+
+  const selectedPalette = palette[index % palette.length];
+
+  return {
+    id: recipe.id,
+    title: recipe.title[language],
+    duration:
+      recipe.totalMinutes !== null
+        ? `${recipe.totalMinutes} min`
+        : recipe.prepMinutes !== null
+          ? `${recipe.prepMinutes} min`
+          : '15 min',
+    emoji: emojiForMealType(recipe.mealType),
+    backgroundColor: selectedPalette.backgroundColor,
+    accentColor: selectedPalette.accentColor,
+  };
+}
+
+function emojiForMealType(mealType: RecipeMealType) {
+  switch (mealType) {
+    case 'breakfast':
+      return '🍳';
+    case 'lunch':
+      return '🥗';
+    case 'dinner':
+      return '🍲';
+    case 'snack':
+      return '🍓';
+    case 'puree':
+      return '🥣';
+    case 'finger-food':
+      return '🫓';
+    case 'batch-prep':
+      return '🍱';
+    default:
+      return '🍽️';
+  }
+}

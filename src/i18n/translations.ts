@@ -1,14 +1,17 @@
 export type AppLanguage = 'sq-AL' | 'en';
 
 type TranslationTree = {
-  common: {
-    albanian: string;
-    english: string;
-    synced: string;
-    setup: string;
-    seeAll: string;
-    fillInData: string;
-  };
+    common: {
+      albanian: string;
+      english: string;
+      synced: string;
+      setup: string;
+      seeAll: string;
+      fillInData: string;
+      loadingRecipes: string;
+      loadingRecipesBody: string;
+      recipeSyncUnavailable: string;
+    };
   home: {
     title: string;
     subtitle: string;
@@ -40,6 +43,10 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       setup: 'Konfiguro',
       seeAll: 'Shiko të gjitha',
       fillInData: 'Plotëso të dhënat',
+      loadingRecipes: 'Po ngarkohen recetat...',
+      loadingRecipesBody:
+        'Recetat nga Firebase po futen në planifikuesin e vakteve.',
+      recipeSyncUnavailable: 'Sinkronizimi i recetave nuk është i disponueshëm',
     },
     home: {
       title: 'Plan Ushqimi🔥',
@@ -70,6 +77,10 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       setup: 'Setup',
       seeAll: 'See all',
       fillInData: 'Fill in Data',
+      loadingRecipes: 'Loading recipes...',
+      loadingRecipesBody:
+        'Firebase recipes are being pulled into the meal planner.',
+      recipeSyncUnavailable: 'Recipe sync unavailable',
     },
     home: {
       title: 'Meal Plan🔥',
