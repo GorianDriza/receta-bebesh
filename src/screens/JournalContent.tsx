@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { isFirebaseConfigured } from '../lib/firebase';
@@ -30,7 +30,9 @@ const MEAL_META: Record<PlannerMealType, { emoji: string; sq: string; en: string
 
 const MEAL_ORDER: PlannerMealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-export function JournalContent() {
+type Props = { onLoginRequired?: () => void };
+
+export function JournalContent({ onLoginRequired }: Props) {
   const { language, t } = useLanguage();
   const { user } = useAuth();
   const [dayPlan, setDayPlan] = useState<DayPlan>({});
@@ -105,6 +107,17 @@ export function JournalContent() {
           ))}
         </View>
       </Surface>
+
+      {/* Guest prompt */}
+      {!user && (
+        <Pressable style={s.guestBanner} onPress={onLoginRequired}>
+          <Text style={s.guestBannerText}>
+            {language === 'sq-AL'
+              ? '🔒 Hyni për të parë vaktet e planifikuara'
+              : '🔒 Sign in to see your planned meals'}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Today's meal snapshot grid — connected to planner */}
       <Text style={s.subHeading}>
@@ -210,6 +223,13 @@ const s = StyleSheet.create({
   snapRecipe: { fontSize: 11, color: '#4A4440', lineHeight: 15, marginTop: 2 },
   snapPlusBubble: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFFCC', alignItems: 'center', justifyContent: 'center' },
   snapPlusText: { fontSize: 22, color: '#111111', fontWeight: '400', lineHeight: 26 },
+
+  guestBanner: {
+    backgroundColor: '#FFF9E0', borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 14,
+    borderWidth: 1, borderColor: '#FFE57A',
+  },
+  guestBannerText: { fontSize: 15, fontWeight: '700', color: '#7A6200', textAlign: 'center' },
 
   noticeCard: { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 16 },
   noticeText: { fontSize: 15, color: '#6E6560', textAlign: 'center' },

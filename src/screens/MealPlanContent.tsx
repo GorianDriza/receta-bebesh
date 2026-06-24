@@ -37,9 +37,9 @@ function durationLabel(r: RecipeRecord): string {
 
 type FilterId = RecipeStage | 'all' | 'fav';
 
-type Props = { onProfilePress?: () => void };
+type Props = { onAvatarPress?: () => void };
 
-export function MealPlanContent({ onProfilePress }: Props) {
+export function MealPlanContent({ onAvatarPress }: Props) {
   const { language, t } = useLanguage();
   const { user, userProfile } = useAuth();
 
@@ -156,7 +156,7 @@ export function MealPlanContent({ onProfilePress }: Props) {
               <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
             )}
           </View>
-          <Pressable style={s.avatarBtn} onPress={onProfilePress} hitSlop={8}>
+          <Pressable style={s.avatarBtn} onPress={onAvatarPress} hitSlop={8}>
             {user ? (
               <Text style={s.avatarInitials}>
                 {(userProfile?.displayName ?? user.displayName ?? '?')

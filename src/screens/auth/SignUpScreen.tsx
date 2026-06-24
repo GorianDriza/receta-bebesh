@@ -33,6 +33,7 @@ const L = {
     nameMissing: 'Vendosni emrin tuaj',
     emailMissing: 'Vendosni emailin',
     passMissing: 'Fjalëkalimi min 6 karaktere',
+    continueGuest: 'Vazhdo si vizitor',
   },
   en: {
     title: 'Create account 👶',
@@ -50,12 +51,13 @@ const L = {
     nameMissing: 'Enter your name',
     emailMissing: 'Enter your email',
     passMissing: 'Password must be at least 6 characters',
+    continueGuest: 'Continue as guest',
   },
 } as const;
 
-type Props = { onGoLogin: () => void };
+type Props = { onGoLogin: () => void; onGuestContinue?: () => void };
 
-export function SignUpScreen({ onGoLogin }: Props) {
+export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
   const { language } = useLanguage();
   const l = L[language];
 
@@ -200,6 +202,12 @@ export function SignUpScreen({ onGoLogin }: Props) {
               <Text style={s.switchLink}>{l.loginLink}</Text>
             </Pressable>
           </View>
+
+          {onGuestContinue != null && (
+            <Pressable onPress={onGuestContinue} hitSlop={8} style={s.guestBtn}>
+              <Text style={s.guestLabel}>{l.continueGuest}</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -269,4 +277,6 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },
   switchLink: { fontSize: 15, fontWeight: '700', color: '#6ECAC0' },
+  guestBtn: { alignItems: 'center', paddingVertical: 4 },
+  guestLabel: { fontSize: 14, color: '#A09599', textDecorationLine: 'underline' },
 });

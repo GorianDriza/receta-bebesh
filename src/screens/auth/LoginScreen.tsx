@@ -27,6 +27,7 @@ const L = {
     forgot: 'Keni harruar fjalëkalimin?',
     resetSent: 'Email rivendosjeje u dërgua!',
     enterEmailFirst: 'Vendosni emailin e parë',
+    continueGuest: 'Vazhdo si vizitor',
   },
   en: {
     title: 'Welcome back 👶',
@@ -39,12 +40,13 @@ const L = {
     forgot: 'Forgot your password?',
     resetSent: 'Password reset email sent!',
     enterEmailFirst: 'Enter your email first',
+    continueGuest: 'Continue as guest',
   },
 } as const;
 
-type Props = { onGoSignUp: () => void };
+type Props = { onGoSignUp: () => void; onGuestContinue?: () => void };
 
-export function LoginScreen({ onGoSignUp }: Props) {
+export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const { language } = useLanguage();
   const l = L[language];
 
@@ -159,6 +161,12 @@ export function LoginScreen({ onGoSignUp }: Props) {
               <Text style={s.switchLink}>{l.signUpLink}</Text>
             </Pressable>
           </View>
+
+          {onGuestContinue != null && (
+            <Pressable onPress={onGuestContinue} hitSlop={8} style={s.guestBtn}>
+              <Text style={s.guestLabel}>{l.continueGuest}</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -221,4 +229,6 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },
   switchLink: { fontSize: 15, fontWeight: '700', color: '#6ECAC0' },
+  guestBtn: { alignItems: 'center', paddingVertical: 4 },
+  guestLabel: { fontSize: 14, color: '#A09599', textDecorationLine: 'underline' },
 });

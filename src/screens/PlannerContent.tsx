@@ -57,7 +57,9 @@ function formatWeekRange(weekKey: string, lang: string): string {
 }
 
 
-export function PlannerContent() {
+type Props = { onLoginRequired?: () => void };
+
+export function PlannerContent({ onLoginRequired }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
 
@@ -132,6 +134,17 @@ export function PlannerContent() {
             {language === 'sq-AL' ? 'Plani Javor 📅' : 'Weekly Plan 📅'}
           </Text>
         </View>
+
+        {/* Guest prompt */}
+        {!user && (
+          <Pressable style={s.guestBanner} onPress={onLoginRequired}>
+            <Text style={s.guestBannerText}>
+              {language === 'sq-AL'
+                ? '🔒 Hyni për të ruajtur planin tuaj javor'
+                : '🔒 Sign in to save your weekly plan'}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Week navigation */}
         <View style={s.weekNav}>
@@ -281,6 +294,13 @@ const s = StyleSheet.create({
 
   header: {},
   title: { fontSize: 32, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
+
+  guestBanner: {
+    backgroundColor: '#FFF9E0', borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 14,
+    borderWidth: 1, borderColor: '#FFE57A',
+  },
+  guestBannerText: { fontSize: 15, fontWeight: '700', color: '#7A6200', textAlign: 'center' },
 
   weekNav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
