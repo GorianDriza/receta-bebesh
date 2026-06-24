@@ -4,57 +4,82 @@
 
 - [x] Build 3-screen tab navigation (Meal Plan / Journal / Learning).
 - [x] Match pastel meal-planner reference design for all 3 screens.
-- [x] Floating bottom navigation consistent across screens.
+- [x] Floating bottom navigation — labels on active tab, fixed icon names.
 - [x] Responsive layout — uses flex, no fixed widths.
 - [x] App icon updated (1254×1254 PNG — icon, splash, android foreground, favicon).
-- [ ] Replace emoji plates with real recipe photos from Firebase Storage.
+- [x] Animated splash screen (logo fade-in + spring, 2.5 s total).
+- [x] Remove all hardcoded recipe data; show real Firebase recipes.
+- [x] Show source image on recipe cards (falls back to emoji when no URL).
+- [x] Tap recipe card → full-screen article modal (image, ingredients, steps, source link).
+- [ ] Replace emoji plates with real recipe photos from Firebase Storage (needs paid plan or direct URL mirror).
 - [ ] Add loading skeleton / empty / error states for all remote data.
+- [ ] Add age-stage filter chips to Meal Plan screen.
+- [ ] Add search bar to Meal Plan screen.
+
+## Authentication
+
+- [ ] Add Firebase Authentication (email/password + Google sign-in).
+- [ ] Create sign-up screen (name, email, password, baby's name + birthdate).
+- [ ] Create login screen.
+- [ ] Gate Firebase reads/writes behind auth (currently open).
+- [ ] Persist auth state across app restarts.
+
+## User Profile
+
+- [ ] Create profile screen (tab 5 or settings icon in header).
+- [ ] Store user data in Firebase Realtime Database: `users/<uid>`.
+  - `displayName`, `email`, `babyName`, `babyBirthdate`, `language`
+- [ ] Show baby's name + age in home header (e.g. "Recipes for Aria · 8 months").
+- [ ] Compute baby's current age stage automatically from birthdate.
+- [ ] Let user edit profile (baby name, birthdate, language preference).
+- [ ] Profile avatar (initials or photo upload).
+
+## Favourites & Meal Planner
+
+- [ ] Save favourite recipes per user (`users/<uid>/favourites/<recipeId>`).
+- [ ] Show favourites tab or section.
+- [ ] Weekly meal planner: assign recipes to days / meal types.
+- [ ] Persist planner data to Firebase per user.
 
 ## Firebase
 
 - [x] iOS Firebase config file `GoogleService-Info.plist` present in repo root.
 - [x] `app.config.js` wired to resolve `GoogleService-Info.plist` for iOS.
+- [ ] Enable Firebase Authentication in Firebase console.
+- [ ] Add Firestore (or keep Realtime DB) security rules — currently open.
 - [ ] Verify Android and iOS Firebase apps point to the same backend project.
-- [ ] Decide whether recipe storage stays in Firebase Realtime Database or moves to Firestore (current: Realtime Database).
 
 ## Localization
 
 - [x] Albanian (`sq-AL`) is the default app language.
 - [x] English as a user-selectable language via chip switcher.
 - [x] Translation structure defined for UI copy, recipe fields, categories, and age labels.
-- [ ] Add a language switcher in settings or profile flow (currently on home header).
+- [ ] Add auth screen strings to translations (sign-up, log-in, errors).
+- [ ] Add profile screen strings to translations.
+- [ ] Add language switcher in profile screen (remove from home header).
 
 ## Recipe Import Pipeline
 
 - [x] Scraper built: `scripts/import-babyfoode.js`.
-  - [x] Fetches recipe index from `https://babyfoode.com/`.
-  - [x] Follows individual recipe links (homepage-discovered links only for now).
-  - [x] Extracts: source URL, title, category, age/stage, prep time, cook time, total time, ingredients, instructions, image URL.
-  - [x] Normalises into Firebase-friendly schema.
-  - [x] Translates English → Albanian with Gemini (machine translation; `GEMINI_API_KEY` required).
-  - [x] Saves to Firebase Realtime Database under `recipes/<slug>`.
-  - [x] Stores source attribution (`source.siteName`, `source.url`, `source.scrapedAt`).
-  - [x] Mirrors recipe images to Firebase Storage when admin credentials are available.
-  - [x] Deduplication: upsert by slug so re-running updates rather than duplicates.
-- [x] Expanded scraper to crawl pagination pages (`/page/2/` … `/page/10/`) — 49 recipes imported to Firebase.
-- [x] Gemini 429 rate-limit handled with exponential backoff (5s → 10s → 20s) and per-call 4s throttle.
+  - [x] Pagination pages (`/page/2/` … `/page/10/`) — 49 recipes imported.
+  - [x] Extracts title, age stage, prep/cook/total time, ingredients, steps, image URL.
+  - [x] Translates English → Albanian with Gemini (machine translation).
+  - [x] Saves to Firebase with both languages.
+  - [x] Source attribution stored.
+  - [x] Deduplication: upsert by slug.
+  - [x] Gemini 429 handled with exponential backoff + 4 s throttle.
 - [ ] Confirm scraping is acceptable for the target pages before bulk import.
+- [ ] Run full import: `npm run import:babyfoode -- --limit=200`.
+- [ ] Mirror images to Firebase Storage (requires paid Blaze plan or self-hosted proxy).
 
 ## Data Model
 
-- [x] Stable recipe schema defined in `src/lib/recipes.ts`:
-  - `id`, `slug`, `languages`, `ageStage`, `mealType`
-  - `title`, `summary`, `ingredients`, `steps` (all localised)
-  - `image`, `source`, `translation`
-  - `prepMinutes`, `cookMinutes`, `totalMinutes`
-  - `createdAt`, `updatedAt`
-- [x] Editorial metadata (`source`, `translation`) separated from translated content.
+- [x] Recipe schema stable in `src/lib/recipes.ts`.
 - [x] Translation status flag (`pending` / `machine` / `reviewed`).
-- [ ] Add flag for manually reviewed translations in admin flow.
+- [ ] User schema: `id`, `email`, `displayName`, `babyName`, `babyBirthdate`, `language`, `favourites`.
+- [ ] Meal-planner schema: `users/<uid>/planner/<week>/<day>/<mealType>` → `recipeId`.
 
-## App Features After Import
+## Notifications (future)
 
-- [ ] Replace hardcoded sample recipes with Firebase-backed recipe reads (filter by age + meal type).
-- [ ] Filter recipes by age, meal type, and language in the Meal Plan screen.
-- [ ] Loading, empty, and error states for remote recipe data.
-- [ ] Basic admin/import workflow so new scraped recipes can be reviewed before publishing.
+- [ ] Daily meal-plan reminder push notification.
+- [ ] "New recipe added" notification for subscribed users.
