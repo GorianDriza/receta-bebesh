@@ -8,26 +8,28 @@ import { AuthProvider, useAuth } from './src/providers/AuthProvider';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { SignUpScreen } from './src/screens/auth/SignUpScreen';
+import { SplashScreen } from './src/screens/SplashScreen';
 import { paperTheme } from './src/theme/paperTheme';
 import { isFirebaseConfigured } from './src/lib/firebase';
 
 function AppContent() {
   const { user, isLoading } = useAuth();
   const [showSignUp, setShowSignUp] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
 
-  // Firebase not configured → skip auth, show app
-  if (!isFirebaseConfigured) return <HomeScreen />;
-
-  // Waiting for persisted auth state to resolve
-  if (isLoading) return null;
-
-  // Logged in
-  if (user) return <HomeScreen />;
-
-  // Not logged in — show auth flow
-  if (showSignUp) {
-    return <SignUpScreen onGoLogin={() => setShowSignUp(false)} />;
+  // Show splash until animation ends
+  if (!splashDone) {
+    return <SplashScreen onDone={() => setSplashDone(true)} />;
   }
+
+  // Auth state still resolving (brief with AsyncStorage persistence)
+  if (isFirebaseConfigured && isLoading) return null;
+
+  // Not configured → skip auth
+  if (!isFirebaseConfigured || user) return <HomeScreen />;
+
+  // Auth screens
+  if (showSignUp) return <SignUpScreen onGoLogin={() => setShowSignUp(false)} />;
   return <LoginScreen onGoSignUp={() => setShowSignUp(true)} />;
 }
 

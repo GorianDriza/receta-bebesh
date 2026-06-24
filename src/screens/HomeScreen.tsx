@@ -9,7 +9,6 @@ import { MealPlanContent } from './MealPlanContent';
 import { PlannerContent } from './PlannerContent';
 import { ProfileModal } from './ProfileModal';
 import { QuickContent } from './QuickContent';
-import { SplashScreen } from './SplashScreen';
 
 type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn';
 
@@ -22,9 +21,8 @@ const TABS: Array<{ id: TabId; icon: string; label: string }> = [
 ];
 
 export function HomeScreen() {
-  const [splashDone, setSplashDone]     = useState(false);
-  const [activeTab,  setActiveTab]      = useState<TabId>('meals');
-  const [showProfile, setShowProfile]   = useState(false);
+  const [activeTab,   setActiveTab]    = useState<TabId>('meals');
+  const [showProfile, setShowProfile]  = useState(false);
 
   return (
     <SafeAreaView style={s.root}>
@@ -59,9 +57,6 @@ export function HomeScreen() {
           </View>
         ))}
       </Surface>
-
-      {/* Animated splash — rendered last so it sits on top */}
-      {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
 
       <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
     </SafeAreaView>
