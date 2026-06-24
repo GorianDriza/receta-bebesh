@@ -6,6 +6,7 @@ import { IconButton, Surface, Text } from 'react-native-paper';
 import { JournalContent } from './JournalContent';
 import { LearningContent } from './LearningContent';
 import { MealPlanContent } from './MealPlanContent';
+import { ProfileModal } from './ProfileModal';
 import { SplashScreen } from './SplashScreen';
 
 type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn';
@@ -19,8 +20,9 @@ const TABS: Array<{ id: TabId; icon: string; label: string }> = [
 ];
 
 export function HomeScreen() {
-  const [splashDone, setSplashDone] = useState(false);
-  const [activeTab,  setActiveTab]  = useState<TabId>('meals');
+  const [splashDone, setSplashDone]     = useState(false);
+  const [activeTab,  setActiveTab]      = useState<TabId>('meals');
+  const [showProfile, setShowProfile]   = useState(false);
 
   return (
     <SafeAreaView style={s.root}>
@@ -28,10 +30,10 @@ export function HomeScreen() {
       <View style={s.glowBottom} />
 
       <View style={s.screenArea}>
-        {activeTab === 'meals'                               && <MealPlanContent />}
+        {activeTab === 'meals'                               && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
         {activeTab === 'journal'                             && <JournalContent />}
         {activeTab === 'learn'                               && <LearningContent />}
-        {(activeTab === 'planner' || activeTab === 'spark') && <MealPlanContent />}
+        {(activeTab === 'planner' || activeTab === 'spark') && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
       </View>
 
       {/* Bottom nav */}
@@ -57,6 +59,8 @@ export function HomeScreen() {
 
       {/* Animated splash — rendered last so it sits on top */}
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+
+      <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
     </SafeAreaView>
   );
 }

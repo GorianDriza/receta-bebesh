@@ -1,10 +1,10 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Chip, IconButton, Surface, Text } from 'react-native-paper';
+import { IconButton, Surface, Text } from 'react-native-paper';
 
-import { AppLanguage } from '../i18n/translations';
 import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
+import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
@@ -34,8 +34,11 @@ function durationLabel(r: RecipeRecord): string {
   return mins != null ? `${mins} min` : '';
 }
 
-export function MealPlanContent() {
-  const { deviceLanguage, language, setLanguage, t } = useLanguage();
+type Props = { onProfilePress?: () => void };
+
+export function MealPlanContent({ onProfilePress }: Props) {
+  const { language, t } = useLanguage();
+  const { user, userProfile } = useAuth();
   const [recipes, setRecipes]   = useState<RecipeRecord[]>([]);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
@@ -64,10 +67,21 @@ export function MealPlanContent() {
     [recipes],
   );
 
-  const langOptions: Array<{ id: AppLanguage; label: string }> = [
-    { id: 'sq-AL', label: t[language].common.albanian },
-    { id: 'en',    label: t[language].common.english  },
-  ];
+  const babyLabel = (() => {
+    const bn = userProfile?.babyName;
+    const bd = userProfile?.babyBirthdate;
+    if (bn && bd) {
+      const birth = new Date(bd);
+      const months =
+        (new Date().getFullYear() - birth.getFullYear()) * 12 +
+        (new Date().getMonth() - birth.getMonth());
+      const age = months < 12
+        ? (language === 'sq-AL' ? `${months} muaj` : `${months}m`)
+        : (language === 'sq-AL' ? `${Math.floor(months / 12)} vjeç` : `${Math.floor(months / 12)}y`);
+      return `${bn} · ${age}`;
+    }
+    return null;
+  })();
 
   return (
     <>
@@ -79,36 +93,29 @@ export function MealPlanContent() {
         <View style={s.header}>
           <View style={s.headerCopy}>
             <Text style={s.screenTitle}>{t[language].home.title}</Text>
-            <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
+            {babyLabel != null ? (
+              <Text style={s.screenSub}>👶 {babyLabel}</Text>
+            ) : (
+              <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
+            )}
           </View>
-          <View style={[s.badge, isFirebaseConfigured ? s.badgeSynced : s.badgeSetup]}>
-            <Text style={s.badgeText}>
-              {isFirebaseConfigured ? t[language].common.synced : t[language].common.setup}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Language row ───────────────────────────────────────────── */}
-        <View style={s.langRow}>
-          <View style={s.deviceHint}>
-            <Text style={s.deviceHintText}>
-              Device: {deviceLanguage === 'sq-AL' ? 'sq-AL' : 'en'}
-            </Text>
-          </View>
-          <View style={s.langChips}>
-            {langOptions.map((o) => (
-              <Chip
-                key={o.id}
-                selected={language === o.id}
-                onPress={() => void setLanguage(o.id)}
-                compact
-                style={[s.chip, language === o.id && s.chipOn]}
-                textStyle={[s.chipText, language === o.id && s.chipTextOn]}
-              >
-                {o.label}
-              </Chip>
-            ))}
-          </View>
+          <Pressable
+            style={s.avatarBtn}
+            onPress={onProfilePress}
+            hitSlop={8}
+          >
+            {user ? (
+              <Text style={s.avatarInitials}>
+                {(userProfile?.displayName ?? user.displayName ?? '?')
+                  .split(' ')
+                  .map((w) => w[0]?.toUpperCase() ?? '')
+                  .slice(0, 2)
+                  .join('')}
+              </Text>
+            ) : (
+              <IconButton icon="account-circle-outline" size={24} iconColor="#1A1714" style={s.icon0} />
+            )}
+          </Pressable>
         </View>
 
         {/* ── Hero card ──────────────────────────────────────────────── */}
@@ -267,20 +274,13 @@ const s = StyleSheet.create({
   headerCopy: { flex: 1 },
   screenTitle: { fontSize: 38, lineHeight: 42, fontWeight: '800', letterSpacing: -1.4, color: '#111111' },
   screenSub: { marginTop: 6, fontSize: 15, lineHeight: 22, color: '#686074', maxWidth: 250 },
-  badge: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
-  badgeSynced: { backgroundColor: '#D9FFDE' },
-  badgeSetup:  { backgroundColor: '#FFFFFFCC' },
-  badgeText:   { fontSize: 13, fontWeight: '700', color: '#39354A' },
-
-  // Language
-  langRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  deviceHint:    { borderRadius: 999, backgroundColor: '#FFFFFFB8', paddingHorizontal: 14, paddingVertical: 9 },
-  deviceHintText:{ fontSize: 13, fontWeight: '600', color: '#4D4760' },
-  langChips:     { flexDirection: 'row', gap: 8 },
-  chip:          { borderRadius: 999, backgroundColor: '#FFFFFFD9', paddingHorizontal: 6, paddingVertical: 8 },
-  chipOn:        { backgroundColor: '#111111' },
-  chipText:      { fontSize: 15, fontWeight: '600', color: '#1E1B2F' },
-  chipTextOn:    { color: '#FFFFFF' },
+  avatarBtn: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#6ECAC0',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
+  },
+  avatarInitials: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
 
   // Hero
   heroCard:      { borderRadius: 30, backgroundColor: '#FFF5A7', padding: 20, flexDirection: 'row', overflow: 'hidden', minHeight: 198 },

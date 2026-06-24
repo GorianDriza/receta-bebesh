@@ -18,21 +18,23 @@
 
 ## Authentication
 
-- [ ] Add Firebase Authentication (email/password + Google sign-in).
-- [ ] Create sign-up screen (name, email, password, baby's name + birthdate).
-- [ ] Create login screen.
-- [ ] Gate Firebase reads/writes behind auth (currently open).
-- [ ] Persist auth state across app restarts.
+- [x] Add Firebase Authentication (email/password sign-in).
+- [x] Create sign-up screen (name, email, password, baby's name + birthdate).
+- [x] Create login screen (with forgot-password email reset).
+- [x] Gate app behind auth — unauthenticated users see login/sign-up.
+- [ ] Google sign-in (requires EAS dev build + native Google SDK setup).
+- [ ] Persist auth state across app restarts (Firebase JS SDK v12 lacks `getReactNativePersistence`; currently in-memory only).
 
 ## User Profile
 
-- [ ] Create profile screen (tab 5 or settings icon in header).
-- [ ] Store user data in Firebase Realtime Database: `users/<uid>`.
+- [x] Profile modal accessible via avatar button in MealPlan header.
+- [x] Store user data in Firebase Realtime Database: `users/<uid>`.
   - `displayName`, `email`, `babyName`, `babyBirthdate`, `language`
-- [ ] Show baby's name + age in home header (e.g. "Recipes for Aria · 8 months").
-- [ ] Compute baby's current age stage automatically from birthdate.
-- [ ] Let user edit profile (baby name, birthdate, language preference).
-- [ ] Profile avatar (initials or photo upload).
+- [x] Show baby's name + age in MealPlan header when profile is set.
+- [x] Compute baby's current age stage automatically from birthdate.
+- [x] Edit profile (display name, baby name, birthdate) in profile modal.
+- [x] Language switcher moved from MealPlan header to profile modal.
+- [x] Initials avatar (teal circle with letters).
 
 ## Favourites & Meal Planner
 
