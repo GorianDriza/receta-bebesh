@@ -25,6 +25,19 @@ const FIREBASE_KEYS = [
 const SOURCE_SITE = 'babyfoode.com';
 const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
+
+const CATEGORY_PAGES = [
+  'https://babyfoode.com',
+  'https://babyfoode.com/page/2/',
+  'https://babyfoode.com/page/3/',
+  'https://babyfoode.com/page/4/',
+  'https://babyfoode.com/page/5/',
+  'https://babyfoode.com/page/6/',
+  'https://babyfoode.com/page/7/',
+  'https://babyfoode.com/page/8/',
+  'https://babyfoode.com/page/9/',
+  'https://babyfoode.com/page/10/',
+];
 const GEMINI_INTERACTIONS_URL =
   'https://generativelanguage.googleapis.com/v1beta/interactions';
 const HTTP_TIMEOUT_MS = 30000;
@@ -360,6 +373,10 @@ function guessMealType(title, categories) {
   return 'unknown';
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function fallbackAlbanianText(englishText) {
   return englishText;
 }
@@ -481,6 +498,44 @@ async function mirrorRecipeImage(recipe) {
   };
 }
 
+async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch(GEMINI_INTERACTIONS_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        signal: controller.signal,
+        body: JSON.stringify(body),
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (response.status === 429) {
+      attempt++;
+      if (attempt > maxRetries) {
+        const text = await response.text();
+        throw new Error(`Gemini 429 after ${maxRetries} retries: ${text}`);
+      }
+      const waitMs = Math.min(60000, 5000 * Math.pow(2, attempt));
+      console.log(`  Gemini rate limited (429) — waiting ${waitMs / 1000}s before retry ${attempt}/${maxRetries}...`);
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Gemini translation failed: ${response.status} ${text}`);
+    }
+
+    return response.json();
+  }
+}
+
 async function translateRecipeWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL;
@@ -489,54 +544,45 @@ async function translateRecipeWithGemini(recipe) {
     return recipe;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, HTTP_TIMEOUT_MS);
+  // Throttle: free tier allows 15 RPM — 4s gap keeps well under limit
+  await sleep(4000);
 
-  let response;
-
+  let payload;
   try {
-    response = await fetch(GEMINI_INTERACTIONS_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        system_instruction:
-          'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
-        input: JSON.stringify({
-          title: recipe.title.en,
-          summary: recipe.summary.en,
-          ingredients: recipe.ingredients.en,
-          steps: recipe.steps.en,
-        }),
-        generation_config: {
-          temperature: 0.2,
-          thinking_level: 'low',
-        },
+    payload = await callGeminiWithRetry(apiKey, model, {
+      model,
+      system_instruction:
+        'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
+      input: JSON.stringify({
+        title: recipe.title.en,
+        summary: recipe.summary.en,
+        ingredients: recipe.ingredients.en,
+        steps: recipe.steps.en,
       }),
+      generation_config: {
+        temperature: 0.2,
+        thinking_level: 'low',
+      },
     });
-  } finally {
-    clearTimeout(timeoutId);
+  } catch (err) {
+    console.warn(`  Translation skipped for "${recipe.title.en}": ${err.message}`);
+    return recipe;
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini translation failed: ${response.status} ${errorText}`);
-  }
-
-  const payload = await response.json();
   const outputText = extractGeminiText(payload);
 
   if (!outputText) {
-    throw new Error('Gemini translation returned no text output.');
+    console.warn(`  Translation returned no text for "${recipe.title.en}" — skipping.`);
+    return recipe;
   }
 
-  const translated = JSON.parse(extractJsonObject(outputText));
+  let translated;
+  try {
+    translated = JSON.parse(extractJsonObject(outputText));
+  } catch {
+    console.warn(`  Translation JSON parse failed for "${recipe.title.en}" — skipping.`);
+    return recipe;
+  }
 
   return {
     ...recipe,
@@ -657,13 +703,33 @@ function normalizeRecipe(url, recipeNode) {
   };
 }
 
+async function collectAllRecipeLinks(limit) {
+  const seen = new Set();
+
+  for (const pageUrl of CATEGORY_PAGES) {
+    if (seen.size >= limit) break;
+    console.log(`  Scanning page: ${pageUrl}`);
+    try {
+      const html = await fetchHtml(pageUrl);
+      const links = extractRecipeLinks(html);
+      for (const link of links) {
+        seen.add(link);
+        if (seen.size >= limit) break;
+      }
+    } catch (err) {
+      console.warn(`  Could not fetch ${pageUrl}: ${err.message}`);
+    }
+  }
+
+  return [...seen].slice(0, limit);
+}
+
 async function importRecipes(limit) {
   loadDotEnvFile(path.join(process.cwd(), '.env'));
   requireFirebaseEnv();
 
-  console.log(`Fetching source index from ${SOURCE_ROOT}...`);
-  const homePageHtml = await fetchHtml(SOURCE_ROOT);
-  const recipeLinks = extractRecipeLinks(homePageHtml).slice(0, limit);
+  console.log(`Scanning ${CATEGORY_PAGES.length} category pages for recipe links...`);
+  const recipeLinks = await collectAllRecipeLinks(limit);
 
   if (recipeLinks.length === 0) {
     throw new Error('No recipe links were found on the source site.');

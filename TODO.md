@@ -2,70 +2,59 @@
 
 ## Current UI
 
-- [ ] Finish the home screen implementation based on the provided pastel meal-planner reference.
-- [ ] Make the new home screen responsive on both narrow phones and larger devices.
-- [ ] Keep the floating bottom navigation and section cards visually consistent across Android and iOS.
+- [x] Build 3-screen tab navigation (Meal Plan / Journal / Learning).
+- [x] Match pastel meal-planner reference design for all 3 screens.
+- [x] Floating bottom navigation consistent across screens.
+- [x] Responsive layout — uses flex, no fixed widths.
+- [x] App icon updated (1254×1254 PNG — icon, splash, android foreground, favicon).
+- [ ] Replace emoji plates with real recipe photos from Firebase Storage.
+- [ ] Add loading skeleton / empty / error states for all remote data.
 
 ## Firebase
 
-- [ ] Add the iOS Firebase config file: `GoogleService-Info.plist`.
-- [ ] Update `app.json` with `ios.googleServicesFile` once the plist is available in the repo.
-- [ ] Verify both Android and iOS Firebase apps point to the same backend project and database.
-- [ ] Decide whether recipe storage stays in Firebase Realtime Database or moves to Firestore. Current code is wired for Realtime Database.
+- [x] iOS Firebase config file `GoogleService-Info.plist` present in repo root.
+- [x] `app.config.js` wired to resolve `GoogleService-Info.plist` for iOS.
+- [ ] Verify Android and iOS Firebase apps point to the same backend project.
+- [ ] Decide whether recipe storage stays in Firebase Realtime Database or moves to Firestore (current: Realtime Database).
 
 ## Localization
 
-- [ ] Set Albanian (`sq-AL`) as the default app language.
-- [ ] Add English as a user-selectable language.
-- [ ] Define a translation structure for UI copy, recipe fields, categories, and age labels.
-- [ ] Add a language switcher in settings or profile flow.
+- [x] Albanian (`sq-AL`) is the default app language.
+- [x] English as a user-selectable language via chip switcher.
+- [x] Translation structure defined for UI copy, recipe fields, categories, and age labels.
+- [ ] Add a language switcher in settings or profile flow (currently on home header).
 
 ## Recipe Import Pipeline
 
-- [ ] Review the structure of `https://babyfoode.com/` and map the recipe sources to import:
-  - Recipe index
-  - Age/stage categories
-  - Individual recipe pages
+- [x] Scraper built: `scripts/import-babyfoode.js`.
+  - [x] Fetches recipe index from `https://babyfoode.com/`.
+  - [x] Follows individual recipe links (homepage-discovered links only for now).
+  - [x] Extracts: source URL, title, category, age/stage, prep time, cook time, total time, ingredients, instructions, image URL.
+  - [x] Normalises into Firebase-friendly schema.
+  - [x] Translates English → Albanian with Gemini (machine translation; `GEMINI_API_KEY` required).
+  - [x] Saves to Firebase Realtime Database under `recipes/<slug>`.
+  - [x] Stores source attribution (`source.siteName`, `source.url`, `source.scrapedAt`).
+  - [x] Mirrors recipe images to Firebase Storage when admin credentials are available.
+  - [x] Deduplication: upsert by slug so re-running updates rather than duplicates.
+- [x] Expanded scraper to crawl pagination pages (`/page/2/` … `/page/10/`) — 49 recipes imported to Firebase.
+- [x] Gemini 429 rate-limit handled with exponential backoff (5s → 10s → 20s) and per-call 4s throttle.
 - [ ] Confirm scraping is acceptable for the target pages before bulk import.
-- [ ] Build a scraper/import script that collects at least:
-  - Source URL
-  - Title
-  - Category
-  - Age/stage
-  - Prep time
-  - Ingredients
-  - Instructions
-  - Image URL
-- [ ] Normalize the imported recipe data into one Firebase-friendly schema.
-- [ ] Translate imported recipe content from English to Albanian before saving.
-- [ ] Save imported recipes into Firebase with both languages available:
-  - `title.en`, `title.sq`
-  - `description.en`, `description.sq`
-  - `ingredients.en`, `ingredients.sq`
-  - `steps.en`, `steps.sq`
-- [ ] Store source attribution for every imported recipe so the original page can be traced later.
-- [ ] Add deduplication so rerunning the scraper updates existing recipes instead of duplicating them.
 
 ## Data Model
 
-- [ ] Define a stable recipe schema in Firebase:
-  - `id`
-  - `slug`
-  - `languages`
-  - `ageStage`
-  - `mealType`
-  - `ingredients`
-  - `steps`
-  - `image`
-  - `source`
-  - `createdAt`
-  - `updatedAt`
-- [ ] Separate editorial metadata from translated content.
-- [ ] Add a flag for manually reviewed translations.
+- [x] Stable recipe schema defined in `src/lib/recipes.ts`:
+  - `id`, `slug`, `languages`, `ageStage`, `mealType`
+  - `title`, `summary`, `ingredients`, `steps` (all localised)
+  - `image`, `source`, `translation`
+  - `prepMinutes`, `cookMinutes`, `totalMinutes`
+  - `createdAt`, `updatedAt`
+- [x] Editorial metadata (`source`, `translation`) separated from translated content.
+- [x] Translation status flag (`pending` / `machine` / `reviewed`).
+- [ ] Add flag for manually reviewed translations in admin flow.
 
 ## App Features After Import
 
-- [ ] Replace the hardcoded sample recipes with Firebase-backed recipe reads.
-- [ ] Filter recipes by age, meal type, and language.
-- [ ] Add loading, empty, and error states for remote recipe data.
-- [ ] Add a basic admin/import workflow so new scraped recipes can be reviewed before publishing in the app.
+- [ ] Replace hardcoded sample recipes with Firebase-backed recipe reads (filter by age + meal type).
+- [ ] Filter recipes by age, meal type, and language in the Meal Plan screen.
+- [ ] Loading, empty, and error states for remote recipe data.
+- [ ] Basic admin/import workflow so new scraped recipes can be reviewed before publishing.

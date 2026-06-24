@@ -53,7 +53,7 @@ module.exports = {
         ? { googleServicesFile: androidGoogleServicesFile }
         : {}),
       adaptiveIcon: {
-        backgroundColor: '#E6F4FE',
+        backgroundColor: '#FFF9F5',
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',

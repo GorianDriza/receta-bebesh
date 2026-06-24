@@ -29,6 +29,10 @@ type TranslationTree = {
     cups: string;
     learningTitle: string;
     mealPlanLabel: string;
+    ageFilter: string;
+    todayMeals: string;
+    babyTips: string;
+    recipesTitle: string;
   };
 };
 
@@ -67,6 +71,10 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       cups: 'gota',
       learningTitle: 'Mësim',
       mealPlanLabel: 'Plan Ushqimi',
+      ageFilter: 'Mosha',
+      todayMeals: 'Vaktet e Sotme',
+      babyTips: 'Këshilla për Bebe',
+      recipesTitle: 'Recetat',
     },
   },
   en: {
@@ -101,6 +109,10 @@ export const translations: Record<AppLanguage, TranslationTree> = {
       cups: 'cups',
       learningTitle: 'Learning',
       mealPlanLabel: 'Meal Plan',
+      ageFilter: 'Age',
+      todayMeals: "Today's Meals",
+      babyTips: 'Baby Tips',
+      recipesTitle: 'Recipes',
     },
   },
 };
