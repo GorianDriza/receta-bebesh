@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,17 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { AuthInput } from './AuthInput';
-
-WebBrowser.maybeCompleteAuthSession();
-
-const IOS_CLIENT_ID    = '354632227539-839uvpk9bspdn34kivvf83esa7ne84qk.apps.googleusercontent.com';
-const ANDROID_CLIENT_ID = '354632227539-ouga11qrgo37u9e0nns6eq75o2n84b8k.apps.googleusercontent.com';
 
 const L = {
   'sq-AL': {
@@ -67,25 +60,6 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [error, setError]       = useState<string | null>(null);
   const [resetMsg, setResetMsg] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
-
-  const [request, response, promptGoogleAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: IOS_CLIENT_ID,
-    androidClientId: ANDROID_CLIENT_ID,
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.params.id_token;
-      if (!firebaseAuth || !idToken) return;
-      setLoading(true);
-      const credential = GoogleAuthProvider.credential(idToken);
-      signInWithCredential(firebaseAuth, credential)
-        .catch((err: any) => setError(mapAuthError(err.code ?? '', language)))
-        .finally(() => setLoading(false));
-    } else if (response?.type === 'error') {
-      setError(mapAuthError('', language));
-    }
-  }, [response, language]);
 
   async function handleLogin() {
     if (!firebaseAuth) return;
@@ -190,12 +164,8 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
               <View style={s.dividerLine} />
             </View>
 
-            {/* Google Sign-In */}
-            <Pressable
-              style={[s.googleBtn, (!request || loading) && s.btnDisabled]}
-              onPress={() => { setError(null); void promptGoogleAsync(); }}
-              disabled={!request || loading}
-            >
+            {/* Google Sign-In — requires expo-application (native build) */}
+            <Pressable style={[s.googleBtn, s.btnDisabled]} disabled>
               <Text style={s.googleIcon}>G</Text>
               <Text style={s.googleLabel}>{l.googleBtn}</Text>
             </Pressable>
