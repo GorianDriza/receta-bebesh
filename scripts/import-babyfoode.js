@@ -16,8 +16,8 @@ const FIREBASE_KEYS = [
 const SOURCE_SITE = 'babyfoode.com';
 const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
-const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
+const GEMINI_INTERACTIONS_URL =
+  'https://generativelanguage.googleapis.com/v1beta/interactions';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
 
@@ -286,9 +286,9 @@ async function fetchHtml(url) {
   return response.text();
 }
 
-async function translateRecipeWithClaude(recipe) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.ANTHROPIC_MODEL;
+async function translateRecipeWithGemini(recipe) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL;
 
   if (!apiKey || !model) {
     return recipe;
@@ -302,30 +302,27 @@ async function translateRecipeWithClaude(recipe) {
   let response;
 
   try {
-    response = await fetch(ANTHROPIC_MESSAGES_URL, {
+    response = await fetch(GEMINI_INTERACTIONS_URL, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
+        'x-goog-api-key': apiKey,
       },
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        max_tokens: 2000,
-        system:
+        system_instruction:
           'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
-        messages: [
-          {
-            role: 'user',
-            content: JSON.stringify({
-              title: recipe.title.en,
-              summary: recipe.summary.en,
-              ingredients: recipe.ingredients.en,
-              steps: recipe.steps.en,
-            }),
-          },
-        ],
+        input: JSON.stringify({
+          title: recipe.title.en,
+          summary: recipe.summary.en,
+          ingredients: recipe.ingredients.en,
+          steps: recipe.steps.en,
+        }),
+        generation_config: {
+          temperature: 0.2,
+          thinking_level: 'low',
+        },
       }),
     });
   } finally {
@@ -333,22 +330,18 @@ async function translateRecipeWithClaude(recipe) {
   }
 
   if (!response.ok) {
-    throw new Error(`Claude translation failed: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`Gemini translation failed: ${response.status} ${errorText}`);
   }
 
   const payload = await response.json();
-  const outputText = Array.isArray(payload.content)
-    ? payload.content
-        .filter(
-          (item) => item && item.type === 'text' && typeof item.text === 'string',
-        )
-        .map((item) => item.text)
-        .join('\n')
-        .trim()
-    : null;
+  const outputText =
+    typeof payload.output_text === 'string'
+      ? payload.output_text.trim()
+      : null;
 
   if (!outputText) {
-    throw new Error('Claude translation returned no text output.');
+    throw new Error('Gemini translation returned no text output.');
   }
 
   const translated = JSON.parse(outputText);
@@ -374,7 +367,7 @@ async function translateRecipeWithClaude(recipe) {
     ),
     translation: {
       status: 'machine',
-      provider: `claude:${model}`,
+      provider: `gemini:${model}`,
       reviewedBy: null,
     },
     updatedAt: new Date().toISOString(),
@@ -490,7 +483,7 @@ async function importRecipes(limit) {
     }
 
     const normalizedRecipe = normalizeRecipe(url, recipeNode);
-    const translatedRecipe = await translateRecipeWithClaude(normalizedRecipe);
+    const translatedRecipe = await translateRecipeWithGemini(normalizedRecipe);
 
     records.push(translatedRecipe);
   }
@@ -524,13 +517,13 @@ async function importRecipes(limit) {
 
   console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
 
-  if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_MODEL) {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) {
     console.log(
-      `Albanian translations were generated with Claude model ${process.env.ANTHROPIC_MODEL}.`,
+      `Albanian translations were generated with Gemini model ${process.env.GEMINI_MODEL}.`,
     );
   } else {
     console.log(
-      'Albanian fields currently mirror English. Set ANTHROPIC_API_KEY and ANTHROPIC_MODEL to enable automatic translation.',
+      'Albanian fields currently mirror English. Set GEMINI_API_KEY and GEMINI_MODEL to enable automatic translation.',
     );
   }
 }
