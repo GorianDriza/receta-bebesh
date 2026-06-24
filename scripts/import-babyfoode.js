@@ -16,6 +16,7 @@ const FIREBASE_KEYS = [
 const SOURCE_SITE = 'babyfoode.com';
 const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
 function loadDotEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -270,6 +271,116 @@ async function fetchHtml(url) {
   return response.text();
 }
 
+function extractResponseText(payload) {
+  if (!payload || !Array.isArray(payload.output)) {
+    return null;
+  }
+
+  for (const outputItem of payload.output) {
+    if (!Array.isArray(outputItem.content)) {
+      continue;
+    }
+
+    for (const contentItem of outputItem.content) {
+      if (
+        contentItem &&
+        contentItem.type === 'output_text' &&
+        typeof contentItem.text === 'string'
+      ) {
+        return contentItem.text;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function translateRecipeWithOpenAI(recipe) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL;
+
+  if (!apiKey || !model) {
+    return recipe;
+  }
+
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text:
+                'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: JSON.stringify({
+                title: recipe.title.en,
+                summary: recipe.summary.en,
+                ingredients: recipe.ingredients.en,
+                steps: recipe.steps.en,
+              }),
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI translation failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const outputText = extractResponseText(payload);
+
+  if (!outputText) {
+    throw new Error('OpenAI translation returned no text output.');
+  }
+
+  const translated = JSON.parse(outputText);
+
+  return {
+    ...recipe,
+    title: createLocalizedText(recipe.title.en, translated.title || recipe.title.en),
+    summary: createLocalizedText(
+      recipe.summary.en,
+      translated.summary || recipe.summary.en,
+    ),
+    ingredients: createLocalizedTextList(
+      recipe.ingredients.en,
+      Array.isArray(translated.ingredients)
+        ? translated.ingredients.map((item) => String(item))
+        : [],
+    ),
+    steps: createLocalizedTextList(
+      recipe.steps.en,
+      Array.isArray(translated.steps)
+        ? translated.steps.map((item) => String(item))
+        : [],
+    ),
+    translation: {
+      status: 'machine',
+      provider: `openai:${model}`,
+      reviewedBy: null,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 function extractRecipeLinks(html) {
   const links = new Set();
   const matches = html.matchAll(/href="(https:\/\/babyfoode\.com\/[^"]+)"/gi);
@@ -376,7 +487,10 @@ async function importRecipes(limit) {
       continue;
     }
 
-    records.push(normalizeRecipe(url, recipeNode));
+    const normalizedRecipe = normalizeRecipe(url, recipeNode);
+    const translatedRecipe = await translateRecipeWithOpenAI(normalizedRecipe);
+
+    records.push(translatedRecipe);
   }
 
   if (records.length === 0) {
@@ -394,9 +508,16 @@ async function importRecipes(limit) {
   await update(ref(database), updates);
 
   console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
-  console.log(
-    'Albanian fields currently mirror English until a translation provider is integrated.',
-  );
+
+  if (process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL) {
+    console.log(
+      `Albanian translations were generated with OpenAI model ${process.env.OPENAI_MODEL}.`,
+    );
+  } else {
+    console.log(
+      'Albanian fields currently mirror English. Set OPENAI_API_KEY and OPENAI_MODEL to enable automatic translation.',
+    );
+  }
 }
 
 async function main() {
