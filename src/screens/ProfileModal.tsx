@@ -9,7 +9,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Chip, IconButton, Text } from 'react-native-paper';
 import { signOut } from 'firebase/auth';
 import { firebaseAuth } from '../lib/auth';
@@ -134,6 +134,7 @@ export function ProfileModal({ visible, onClose }: Props) {
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
+      <SafeAreaProvider>
       <SafeAreaView style={s.root}>
         {/* Top bar */}
         <View style={s.topBar}>
@@ -232,6 +233,7 @@ export function ProfileModal({ visible, onClose }: Props) {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

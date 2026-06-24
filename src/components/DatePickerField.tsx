@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   label: string;
@@ -12,8 +12,9 @@ type Props = {
 };
 
 function toDate(str: string): Date {
+  if (!str) return new Date(2024, 0, 1);
   const d = new Date(str);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return isNaN(d.getTime()) ? new Date(2024, 0, 1) : d;
 }
 
 function toYMD(d: Date): string {
@@ -25,26 +26,55 @@ function toYMD(d: Date): string {
 
 function formatDisplay(str: string, lang: string): string {
   const d = toDate(str);
-  if (!str) return lang === 'sq-AL' ? 'Zgjidh datën' : 'Pick a date';
   return d.toLocaleDateString(lang === 'sq-AL' ? 'sq-AL' : 'en-US', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 }
 
+// Inner sheet — needs its own insets hook (runs inside SafeAreaProvider)
+function IOSPickerSheet({
+  label, value, onChange, language, onClose,
+}: Props & { onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const [draft, setDraft] = useState(toDate(value));
+
+  return (
+    <View style={[s.iosOverlay, { paddingBottom: 0 }]}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={[s.iosInner, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={s.iosTitleRow}>
+          <Text style={s.iosTitle}>{label}</Text>
+          <Pressable
+            onPress={() => { onChange(toYMD(draft)); onClose(); }}
+            hitSlop={12}
+            style={s.iosDoneBtn}
+          >
+            <Text style={s.iosDone}>
+              {language === 'sq-AL' ? 'Gati' : 'Done'}
+            </Text>
+          </Pressable>
+        </View>
+        <DateTimePicker
+          value={draft}
+          mode="date"
+          display="spinner"
+          maximumDate={new Date()}
+          onChange={(_e: DateTimePickerEvent, d?: Date) => { if (d) setDraft(d); }}
+          style={s.picker}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function DatePickerField({ label, value, onChange, language = 'sq-AL' }: Props) {
   const [open, setOpen] = useState(false);
-  const current = toDate(value);
-
-  function handleChange(_event: DateTimePickerEvent, date?: Date) {
-    if (Platform.OS === 'android') {
-      setOpen(false);
-      if (date) onChange(toYMD(date));
-    } else {
-      if (date) onChange(toYMD(date));
-    }
-  }
-
   const isEmpty = !value;
+
+  function handleAndroidChange(_event: DateTimePickerEvent, date?: Date) {
+    setOpen(false);
+    if (date) onChange(toYMD(date));
+  }
 
   return (
     <>
@@ -60,40 +90,29 @@ export function DatePickerField({ label, value, onChange, language = 'sq-AL' }: 
         </Pressable>
       </View>
 
-      {/* Android: inline show/hide */}
+      {/* Android: native dialog rendered inline */}
       {Platform.OS === 'android' && open && (
         <DateTimePicker
-          value={current}
+          value={toDate(value)}
           mode="date"
           display="default"
           maximumDate={new Date()}
-          onChange={handleChange}
+          onChange={handleAndroidChange}
         />
       )}
 
-      {/* iOS: bottom sheet modal */}
+      {/* iOS: bottom sheet inside its own SafeAreaProvider */}
       {Platform.OS === 'ios' && (
-        <Modal visible={open} transparent animationType="slide">
-          <SafeAreaView style={s.iosSheet} edges={['bottom']}>
-            <View style={s.iosInner}>
-              <View style={s.iosTitleRow}>
-                <Text style={s.iosTitle}>{label}</Text>
-                <Pressable onPress={() => setOpen(false)} hitSlop={12} style={s.iosDoneBtn}>
-                  <Text style={s.iosDone}>
-                    {language === 'sq-AL' ? 'Gati' : 'Done'}
-                  </Text>
-                </Pressable>
-              </View>
-              <DateTimePicker
-                value={current}
-                mode="date"
-                display="spinner"
-                maximumDate={new Date()}
-                onChange={handleChange}
-                style={s.picker}
-              />
-            </View>
-          </SafeAreaView>
+        <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+          <SafeAreaProvider>
+            <IOSPickerSheet
+              label={label}
+              value={value}
+              onChange={onChange}
+              language={language}
+              onClose={() => setOpen(false)}
+            />
+          </SafeAreaProvider>
         </Modal>
       )}
     </>
@@ -112,15 +131,15 @@ const s = StyleSheet.create({
   placeholder: { color: '#B0A9A3' },
   calIcon: { fontSize: 18 },
 
-  // iOS sheet
-  iosSheet: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
+  iosOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000055' },
   iosInner: {
-    backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 24, paddingTop: 4,
   },
   iosTitleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 20, paddingBottom: 8,
+    paddingTop: 20, paddingBottom: 4,
   },
   iosTitle: { fontSize: 17, fontWeight: '800', color: '#1A1714' },
   iosDoneBtn: { padding: 4 },

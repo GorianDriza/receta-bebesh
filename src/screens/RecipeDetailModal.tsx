@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
@@ -45,6 +45,7 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
+      <SafeAreaProvider>
       <SafeAreaView style={s.root}>
         {/* Top bar */}
         <View style={s.topBar}>
@@ -151,6 +152,7 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
           />
         )}
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
