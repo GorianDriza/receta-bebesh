@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,10 +10,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { AuthInput } from './AuthInput';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const IOS_CLIENT_ID     = '354632227539-839uvpk9bspdn34kivvf83esa7ne84qk.apps.googleusercontent.com';
+const ANDROID_CLIENT_ID = '354632227539-ouga11qrgo37u9e0nns6eq75o2n84b8k.apps.googleusercontent.com';
 
 const L = {
   'sq-AL': {
@@ -60,6 +72,25 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [error, setError]       = useState<string | null>(null);
   const [resetMsg, setResetMsg] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
+
+  const [request, response, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: IOS_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params.id_token;
+      if (!firebaseAuth || !idToken) return;
+      setLoading(true);
+      const credential = GoogleAuthProvider.credential(idToken);
+      signInWithCredential(firebaseAuth, credential)
+        .catch((err: any) => setError(mapAuthError(err.code ?? '', language)))
+        .finally(() => setLoading(false));
+    } else if (response?.type === 'error') {
+      setError(mapAuthError('', language));
+    }
+  }, [response, language]);
 
   async function handleLogin() {
     if (!firebaseAuth) return;
@@ -157,21 +188,22 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
               <Text style={s.forgotLink}>{l.forgot}</Text>
             </Pressable>
 
-            {/* Divider */}
             <View style={s.dividerRow}>
               <View style={s.dividerLine} />
               <Text style={s.dividerText}>{l.or}</Text>
               <View style={s.dividerLine} />
             </View>
 
-            {/* Google Sign-In — requires expo-application (native build) */}
-            <Pressable style={[s.googleBtn, s.btnDisabled]} disabled>
+            <Pressable
+              style={[s.googleBtn, (!request || loading) && s.btnDisabled]}
+              onPress={() => { setError(null); void promptGoogleAsync(); }}
+              disabled={!request || loading}
+            >
               <Text style={s.googleIcon}>G</Text>
               <Text style={s.googleLabel}>{l.googleBtn}</Text>
             </Pressable>
           </View>
 
-          {/* Sign up row */}
           <View style={s.switchRow}>
             <Text style={s.switchText}>{l.noAccount} </Text>
             <Pressable onPress={onGoSignUp} hitSlop={8}>
@@ -224,19 +256,15 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 15, color: '#6E6560', lineHeight: 22, marginTop: -8 },
 
   fields: { gap: 14 },
-
   eyeBtn: { paddingRight: 4 },
   eyeIcon: { fontSize: 18 },
 
-  error: { fontSize: 14, color: '#E05252', fontWeight: '600' },
+  error:   { fontSize: 14, color: '#E05252', fontWeight: '600' },
   success: { fontSize: 14, color: '#3D9C72', fontWeight: '600' },
 
   btn: {
-    backgroundColor: '#6ECAC0',
-    borderRadius: 999,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginTop: 4,
+    backgroundColor: '#6ECAC0', borderRadius: 999,
+    paddingVertical: 18, alignItems: 'center', marginTop: 4,
   },
   btnDisabled: { opacity: 0.6 },
   btnLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
@@ -250,16 +278,11 @@ const s = StyleSheet.create({
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
+    backgroundColor: '#FFFFFF', borderRadius: 999,
     paddingVertical: 16,
-    borderWidth: 1.5,
-    borderColor: '#E0D9D3',
+    borderWidth: 1.5, borderColor: '#E0D9D3',
   },
-  googleIcon: {
-    fontSize: 18, fontWeight: '900', color: '#4285F4',
-    width: 24, textAlign: 'center',
-  },
+  googleIcon: { fontSize: 18, fontWeight: '900', color: '#4285F4', width: 24, textAlign: 'center' },
   googleLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
 
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
