@@ -215,7 +215,10 @@ export function PlannerContent({ onLoginRequired }: Props) {
                       </Pressable>
                     </View>
                   ) : (
-                    <Pressable style={s.slotEmpty} onPress={() => openPicker(m.key)}>
+                    <Pressable
+                      style={s.slotEmpty}
+                      onPress={() => { if (!user) { onLoginRequired?.(); return; } openPicker(m.key); }}
+                    >
                       <IconButton icon="plus-circle-outline" size={22} iconColor="#6ECAC0" style={s.icon0} />
                       <Text style={s.slotEmptyText}>
                         {language === 'sq-AL' ? 'Shto recetë' : 'Add recipe'}

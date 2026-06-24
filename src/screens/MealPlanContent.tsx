@@ -37,9 +37,9 @@ function durationLabel(r: RecipeRecord): string {
 
 type FilterId = RecipeStage | 'all' | 'fav';
 
-type Props = { onAvatarPress?: () => void };
+type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void };
 
-export function MealPlanContent({ onAvatarPress }: Props) {
+export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
   const { language, t } = useLanguage();
   const { user, userProfile } = useAuth();
 
@@ -82,7 +82,7 @@ export function MealPlanContent({ onAvatarPress }: Props) {
   }, [user]);
 
   async function toggleFavourite(recipe: RecipeRecord) {
-    if (!user) return;
+    if (!user) { onLoginRequired?.(); return; }
     const isFav = favouriteIds.has(recipe.id);
     // Optimistic UI
     setFavIds((prev) => {
@@ -314,15 +314,17 @@ export function MealPlanContent({ onAvatarPress }: Props) {
                         style={s.icon0}
                       />
                     </Pressable>
-                    {user && (
-                      <Pressable
-                        style={s.actionBubble}
-                        onPress={(e) => { e.stopPropagation(); setPlannerRecipe(recipe); }}
-                        hitSlop={8}
-                      >
-                        <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
-                      </Pressable>
-                    )}
+                    <Pressable
+                      style={s.actionBubble}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        if (!user) { onLoginRequired?.(); return; }
+                        setPlannerRecipe(recipe);
+                      }}
+                      hitSlop={8}
+                    >
+                      <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
+                    </Pressable>
                   </View>
 
                   <View style={s.mealInfo}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -62,11 +62,19 @@ export function ProfileModal({ visible, onClose }: Props) {
   const { user, userProfile, refreshProfile } = useAuth();
   const l = L[language];
 
-  const [name, setName]       = useState(userProfile?.displayName ?? user?.displayName ?? '');
-  const [babyName, setBabyName] = useState(userProfile?.babyName ?? '');
-  const [babyBd, setBabyBd]   = useState(userProfile?.babyBirthdate ?? '');
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
+  const [name, setName]         = useState('');
+  const [babyName, setBabyName] = useState('');
+  const [babyBd, setBabyBd]     = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+
+  // Sync fields each time modal opens or profile loads from cache/Firebase
+  useEffect(() => {
+    if (!visible) return;
+    setName(userProfile?.displayName ?? user?.displayName ?? '');
+    setBabyName(userProfile?.babyName ?? '');
+    setBabyBd(userProfile?.babyBirthdate ?? '');
+  }, [visible, userProfile, user?.displayName]);
 
   const babyAge = babyBd ? formatBabyAge(babyBd, language) : '';
   const stage   = babyBd ? computeAgeStage(babyBd) : null;
