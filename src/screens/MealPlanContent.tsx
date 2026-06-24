@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
@@ -48,6 +49,7 @@ export function MealPlanContent({ onProfilePress }: Props) {
   const [selected, setSelected]       = useState<RecipeRecord | null>(null);
   const [favouriteIds, setFavIds]     = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -312,9 +314,15 @@ export function MealPlanContent({ onProfilePress }: Props) {
                         style={s.icon0}
                       />
                     </Pressable>
-                    <View style={s.actionBubble}>
-                      <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
-                    </View>
+                    {user && (
+                      <Pressable
+                        style={s.actionBubble}
+                        onPress={(e) => { e.stopPropagation(); setPlannerRecipe(recipe); }}
+                        hitSlop={8}
+                      >
+                        <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
+                      </Pressable>
+                    )}
                   </View>
 
                   <View style={s.mealInfo}>
@@ -345,6 +353,12 @@ export function MealPlanContent({ onProfilePress }: Props) {
       </ScrollView>
 
       <RecipeDetailModal recipe={selected} onClose={() => setSelected(null)} />
+      {plannerRecipe != null && (
+        <PlannerPickerSheet
+          recipe={plannerRecipe}
+          onClose={() => setPlannerRecipe(null)}
+        />
+      )}
     </>
   );
 }

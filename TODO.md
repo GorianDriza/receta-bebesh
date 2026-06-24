@@ -13,7 +13,10 @@
 - [x] Tap recipe card → full-screen article modal (image, ingredients, steps, source link).
 - [ ] Replace emoji plates with real recipe photos from Firebase Storage (needs paid plan or direct URL mirror).
 - [x] Quick Ideas tab (Spark): 3 random recipes from baby's age stage, shuffle button.
+- [x] Journal tab: shows today's planner entries (recipe title + image grid).
+- [x] Learning tab: 6 baby-food bilingual cards with topic filter chips.
 - [x] Loading skeletons (RecipeCardSkeleton, SlotSkeleton) — animated pulse in MealPlan, Planner, Quick tabs.
+- [x] Splash covers auth hydration — no flicker on app start.
 - [x] Add age-stage filter chips to Meal Plan screen (All / 4-6m / 6-8m / 9-12m / 12m+ / Saved).
 - [x] Default filter auto-set from baby's age stage (profile birthdate).
 - [x] Add search bar to Meal Plan screen (client-side title search).
@@ -25,7 +28,7 @@
 - [x] Create login screen (with forgot-password email reset).
 - [x] Gate app behind auth — unauthenticated users see login/sign-up.
 - [ ] Google sign-in (requires EAS dev build + native Google SDK setup).
-- [ ] Persist auth state across app restarts (Firebase JS SDK v12 lacks `getReactNativePersistence`; currently in-memory only).
+- [x] Persist auth state across app restarts (custom AsyncStorage Persistence object — bypasses removed `getReactNativePersistence` in v12).
 
 ## User Profile
 
@@ -48,6 +51,9 @@
 - [x] Recipe picker modal with search (assigns to breakfast/lunch/dinner/snack slot).
 - [x] Persist planner data to Firebase: `users/<uid>/planner/<weekKey>/<day>/<meal>`.
 - [x] Remove recipe from slot (× button).
+- [x] "Add to Plan" button in recipe detail modal.
+- [x] "+" quick-add button on recipe cards (opens day/meal picker).
+- [x] Shared `PlannerPickerSheet` component reused in both modal and card.
 
 ## Firebase
 
@@ -71,7 +77,7 @@
 ## Recipe Import Pipeline
 
 - [x] Scraper built: `scripts/import-babyfoode.js`.
-  - [x] Pagination pages (`/page/2/` … `/page/10/`) — 49 recipes imported.
+  - [x] Pagination pages (`/page/2/` … `/page/10/`) — 100+ recipes imported.
   - [x] Extracts title, age stage, prep/cook/total time, ingredients, steps, image URL.
   - [x] Translates English → Albanian with Gemini (machine translation).
   - [x] Saves to Firebase with both languages.
@@ -79,7 +85,8 @@
   - [x] Deduplication: upsert by slug.
   - [x] Gemini 429 handled with exponential backoff + 4 s throttle.
 - [ ] Confirm scraping is acceptable for the target pages before bulk import.
-- [ ] Run full import: `npm run import:babyfoode -- --limit=200`.
+- [x] Run initial import: `npm run import:babyfoode -- --limit=100` (completed).
+- [ ] Run larger import: `npm run import:babyfoode -- --limit=200` for more content.
 - [ ] Mirror images to Firebase Storage (requires paid Blaze plan or self-hosted proxy).
 
 ## Data Model
