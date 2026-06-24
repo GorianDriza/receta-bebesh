@@ -23,6 +23,7 @@ import {
   PlannerMealType,
   removePlannerEntry,
   setPlannerEntry,
+  todayDayKey,
   WeekPlan,
 } from '../lib/planner';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
@@ -55,11 +56,6 @@ function formatWeekRange(weekKey: string, lang: string): string {
   return `${start.toLocaleDateString(locale, opts)} – ${end.toLocaleDateString(locale, opts)}`;
 }
 
-function todayDayKey(): DayKey {
-  const d = new Date().getUTCDay(); // 0=Sun,1=Mon,...
-  const map: Record<number, DayKey> = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'sun' };
-  return map[d] ?? 'mon';
-}
 
 export function PlannerContent() {
   const { language } = useLanguage();

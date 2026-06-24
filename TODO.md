@@ -54,7 +54,9 @@
 - [x] iOS Firebase config file `GoogleService-Info.plist` present in repo root.
 - [x] `app.config.js` wired to resolve `GoogleService-Info.plist` for iOS.
 - [ ] Enable Firebase Authentication in Firebase console.
-- [ ] Add Firestore (or keep Realtime DB) security rules — currently open.
+- [x] Wrote `database.rules.json` — apply in Firebase console → Realtime Database → Rules.
+  - `recipes`: public read, authenticated write
+  - `users/$uid`: read/write only by that uid
 - [ ] Verify Android and iOS Firebase apps point to the same backend project.
 
 ## Localization
@@ -84,8 +86,9 @@
 
 - [x] Recipe schema stable in `src/lib/recipes.ts`.
 - [x] Translation status flag (`pending` / `machine` / `reviewed`).
-- [ ] User schema: `id`, `email`, `displayName`, `babyName`, `babyBirthdate`, `language`, `favourites`.
-- [ ] Meal-planner schema: `users/<uid>/planner/<week>/<day>/<mealType>` → `recipeId`.
+- [x] User schema: `src/lib/users.ts` — `uid`, `displayName`, `email`, `babyName`, `babyBirthdate`, `language`, `createdAt`, `updatedAt`.
+- [x] Favourites schema: `users/<uid>/favourites/<recipeId>` → timestamp.
+- [x] Meal-planner schema: `users/<uid>/planner/<weekKey>/<day>/<meal>` → `PlannerEntry`.
 
 ## Notifications (future)
 

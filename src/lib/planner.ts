@@ -40,6 +40,12 @@ export function offsetWeek(weekKey: string, delta: number): string {
   return getISOWeekKey(start);
 }
 
+export function todayDayKey(): DayKey {
+  const d = new Date().getDay(); // 0=Sun,1=Mon,...
+  const map: Record<number, DayKey> = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'sun' };
+  return map[d] ?? 'mon';
+}
+
 export async function getWeekPlan(uid: string, weekKey: string): Promise<WeekPlan> {
   if (!firebaseDatabase) return {};
   const snap = await get(ref(firebaseDatabase, `users/${uid}/planner/${weekKey}`));
