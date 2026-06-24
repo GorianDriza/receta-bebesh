@@ -8,6 +8,7 @@ import { LearningContent } from './LearningContent';
 import { MealPlanContent } from './MealPlanContent';
 import { PlannerContent } from './PlannerContent';
 import { ProfileModal } from './ProfileModal';
+import { QuickContent } from './QuickContent';
 import { SplashScreen } from './SplashScreen';
 
 type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn';
@@ -33,7 +34,7 @@ export function HomeScreen() {
       <View style={s.screenArea}>
         {activeTab === 'meals'   && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
         {activeTab === 'planner' && <PlannerContent />}
-        {activeTab === 'spark'   && <MealPlanContent onProfilePress={() => setShowProfile(true)} />}
+        {activeTab === 'spark'   && <QuickContent />}
         {activeTab === 'journal' && <JournalContent />}
         {activeTab === 'learn'   && <LearningContent />}
       </View>
