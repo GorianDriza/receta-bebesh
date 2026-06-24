@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 const { initializeApp, getApp, getApps } = require('firebase/app');
 const { getDatabase, goOffline, ref, update } = require('firebase/database');
+const {
+  applicationDefault,
+  cert,
+  getApp: getAdminApp,
+  getApps: getAdminApps,
+  initializeApp: initializeAdminApp,
+} = require('firebase-admin/app');
+const { getStorage } = require('firebase-admin/storage');
 
 const FIREBASE_KEYS = [
   'EXPO_PUBLIC_FIREBASE_API_KEY',
@@ -20,6 +29,7 @@ const GEMINI_INTERACTIONS_URL =
   'https://generativelanguage.googleapis.com/v1beta/interactions';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
+const IMAGE_TIMEOUT_MS = 45000;
 
 function loadDotEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -73,6 +83,47 @@ function getFirebaseApp() {
   };
 
   return getApps().length > 0 ? getApp() : initializeApp(config);
+}
+
+function getServiceAccountConfig() {
+  if (process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON) {
+    return JSON.parse(process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON);
+  }
+
+  const serviceAccountPath =
+    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+  if (!serviceAccountPath) {
+    return null;
+  }
+
+  const resolvedPath = path.isAbsolute(serviceAccountPath)
+    ? serviceAccountPath
+    : path.join(process.cwd(), serviceAccountPath);
+
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`Firebase admin service account file not found: ${resolvedPath}`);
+  }
+
+  return JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+}
+
+function getFirebaseAdminApp() {
+  if (getAdminApps().length > 0) {
+    return getAdminApp();
+  }
+
+  const serviceAccount = getServiceAccountConfig();
+
+  if (!serviceAccount && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return null;
+  }
+
+  return initializeAdminApp({
+    credential: serviceAccount ? cert(serviceAccount) : applicationDefault(),
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  });
 }
 
 function slugify(value) {
@@ -139,6 +190,35 @@ function extractJsonObject(text) {
 
 function stripHtml(value) {
   return htmlDecode(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function inferExtension(url, contentType) {
+  if (contentType) {
+    if (contentType.includes('png')) {
+      return 'png';
+    }
+
+    if (contentType.includes('webp')) {
+      return 'webp';
+    }
+
+    if (contentType.includes('jpeg') || contentType.includes('jpg')) {
+      return 'jpg';
+    }
+  }
+
+  try {
+    const { pathname } = new URL(url);
+    const extension = path.extname(pathname).replace('.', '').toLowerCase();
+
+    if (extension) {
+      return extension;
+    }
+  } catch {
+    return 'jpg';
+  }
+
+  return 'jpg';
 }
 
 function extractJsonLdRecipes(html) {
@@ -327,6 +407,80 @@ async function fetchHtml(url) {
   return response.text();
 }
 
+async function mirrorRecipeImage(recipe) {
+  if (!recipe.source.imageUrl) {
+    return recipe;
+  }
+
+  const adminApp = getFirebaseAdminApp();
+
+  if (!adminApp) {
+    return recipe;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, IMAGE_TIMEOUT_MS);
+
+  let response;
+
+  try {
+    response = await fetch(recipe.source.imageUrl, {
+      headers: {
+        'user-agent': 'receta-bebesh-importer/1.0',
+        accept: 'image/*',
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download recipe image ${recipe.source.imageUrl}: ${response.status}`,
+    );
+  }
+
+  const contentType = response.headers.get('content-type') || 'image/jpeg';
+  const extension = inferExtension(recipe.source.imageUrl, contentType);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const storagePath = `recipes/${recipe.slug}/cover.${extension}`;
+  const downloadToken = randomUUID();
+  const bucket = getStorage(adminApp).bucket();
+  const file = bucket.file(storagePath);
+
+  await file.save(buffer, {
+    resumable: false,
+    contentType,
+    metadata: {
+      contentType,
+      metadata: {
+        firebaseStorageDownloadTokens: downloadToken,
+        sourceUrl: recipe.source.imageUrl,
+      },
+    },
+  });
+
+  const downloadUrl =
+    `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
+    `${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
+  const mirroredAt = new Date().toISOString();
+
+  return {
+    ...recipe,
+    image: {
+      sourceUrl: recipe.source.imageUrl,
+      storagePath,
+      downloadUrl,
+      contentType,
+      mirroredAt,
+    },
+    updatedAt: mirroredAt,
+  };
+}
+
 async function translateRecipeWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL;
@@ -479,6 +633,13 @@ function normalizeRecipe(url, recipeNode) {
     prepMinutes: durationToMinutes(recipeNode.prepTime),
     cookMinutes: durationToMinutes(recipeNode.cookTime),
     totalMinutes: durationToMinutes(recipeNode.totalTime),
+    image: {
+      sourceUrl: image,
+      storagePath: null,
+      downloadUrl: null,
+      contentType: null,
+      mirroredAt: null,
+    },
     source: {
       siteName: SOURCE_SITE,
       sourceId: slug,
@@ -522,8 +683,9 @@ async function importRecipes(limit) {
 
     const normalizedRecipe = normalizeRecipe(url, recipeNode);
     const translatedRecipe = await translateRecipeWithGemini(normalizedRecipe);
+    const mirroredRecipe = await mirrorRecipeImage(translatedRecipe);
 
-    records.push(translatedRecipe);
+    records.push(mirroredRecipe);
   }
 
   if (records.length === 0) {
@@ -562,6 +724,14 @@ async function importRecipes(limit) {
   } else {
     console.log(
       'Albanian fields currently mirror English. Set GEMINI_API_KEY and GEMINI_MODEL to enable automatic translation.',
+    );
+  }
+
+  if (getServiceAccountConfig() || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.log('Recipe images were mirrored to Firebase Storage when available.');
+  } else {
+    console.log(
+      'Recipe images remain on source URLs. Set FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH or FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON to mirror them into Firebase Storage.',
     );
   }
 }

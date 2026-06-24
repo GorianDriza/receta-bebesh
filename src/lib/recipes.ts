@@ -31,6 +31,14 @@ export type RecipeSource = {
   scrapedAt: string;
 };
 
+export type RecipeImage = {
+  sourceUrl: string | null;
+  storagePath: string | null;
+  downloadUrl: string | null;
+  contentType: string | null;
+  mirroredAt: string | null;
+};
+
 export type RecipeTranslation = {
   status: TranslationStatus;
   provider: string;
@@ -50,6 +58,7 @@ export type RecipeRecord = {
   prepMinutes: number | null;
   cookMinutes: number | null;
   totalMinutes: number | null;
+  image: RecipeImage;
   source: RecipeSource;
   translation: RecipeTranslation;
   createdAt: string;
