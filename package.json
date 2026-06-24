@@ -33,7 +33,8 @@
     "start": "expo start",
     "android": "node scripts/start-android.js",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "import:babyfoode": "node scripts/import-babyfoode.js"
   },
   "private": true
 }
