@@ -180,7 +180,11 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       const normalize = (s: string) =>
         s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
       const q = normalize(searchQuery);
-      filtered = filtered.filter((r) => normalize(r.title[language]).includes(q));
+      filtered = filtered.filter((r) => {
+        if (normalize(r.title[language]).includes(q)) return true;
+        const ings = [...(r.ingredients?.[language] ?? []), ...(r.ingredients?.en ?? [])];
+        return ings.some((ing) => normalize(ing).includes(q));
+      });
     }
     if (diffFilter !== 'any') {
       filtered = filtered.filter((r) => {
@@ -506,7 +510,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder={language === 'sq-AL' ? 'Kërko receta...' : 'Search recipes...'}
+            placeholder={language === 'sq-AL' ? 'Kërko titull ose përbërës...' : 'Search title or ingredient...'}
             placeholderTextColor="#B0A9A3"
             style={s.searchInput}
           />
