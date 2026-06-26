@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
   Pressable,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { IconButton, Text } from 'react-native-paper';
 
 import { AppLanguage } from '../i18n/translations';
 import {
+  addShoppingItem,
   clearCheckedItems,
   getShoppingList,
   removeShoppingItem,
@@ -24,18 +26,21 @@ const L: Record<AppLanguage, {
   empty: string;
   clearChecked: string;
   clearAll: string;
+  addPlaceholder: string;
 }> = {
   'sq-AL': {
     title: 'Lista e Blerjes',
     empty: 'Lista është bosh. Shtoni përbërës nga recetat.',
     clearChecked: 'Fshi të kontrolluarat',
     clearAll: 'Fshi të gjitha',
+    addPlaceholder: 'Shto artikull...',
   },
   en: {
     title: 'Shopping List',
     empty: 'Your list is empty. Tap ingredients in any recipe to add them.',
     clearChecked: 'Clear checked',
     clearAll: 'Clear all',
+    addPlaceholder: 'Add item...',
   },
 };
 
@@ -46,6 +51,8 @@ export function ShoppingListModal({ visible, onClose }: Props) {
   const labels = L[language];
 
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [newItem, setNewItem] = useState('');
+  const inputRef = useRef<TextInput>(null);
 
   const load = useCallback(async () => {
     setItems(await getShoppingList());
@@ -67,6 +74,14 @@ export function ShoppingListModal({ visible, onClose }: Props) {
 
   async function handleClearChecked() {
     await clearCheckedItems();
+    await load();
+  }
+
+  async function handleAddItem() {
+    const text = newItem.trim();
+    if (!text) return;
+    await addShoppingItem(text);
+    setNewItem('');
     await load();
   }
 
@@ -107,6 +122,27 @@ export function ShoppingListModal({ visible, onClose }: Props) {
           <View style={s.header}>
             <Text style={s.title}>{labels.title}</Text>
             <IconButton icon="close" size={22} iconColor="#1A1714" style={s.icon0} onPress={onClose} />
+          </View>
+
+          {/* Add item input */}
+          <View style={s.addRow}>
+            <TextInput
+              ref={inputRef}
+              style={s.addInput}
+              value={newItem}
+              onChangeText={setNewItem}
+              placeholder={labels.addPlaceholder}
+              placeholderTextColor="#B0ABB8"
+              onSubmitEditing={handleAddItem}
+              returnKeyType="done"
+            />
+            <Pressable
+              style={[s.addBtn, !newItem.trim() && s.addBtnDisabled]}
+              onPress={handleAddItem}
+              disabled={!newItem.trim()}
+            >
+              <Text style={s.addBtnText}>+</Text>
+            </Pressable>
           </View>
 
           {items.length === 0 ? (
@@ -194,4 +230,31 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   clearBtnLabel: { fontSize: 15, fontWeight: '700', color: '#6E6580' },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EEF5',
+  },
+  addInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#F5F3FA',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: '#1A1714',
+  },
+  addBtn: {
+    width: 44, height: 44,
+    borderRadius: 12,
+    backgroundColor: '#6ECAC0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtnDisabled: { opacity: 0.35 },
+  addBtnText: { fontSize: 26, fontWeight: '300', color: '#FFFFFF', lineHeight: 32 },
 });
