@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { IconButton, Surface, Text } from 'react-native-paper';
@@ -64,6 +64,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
   const [recipes, setRecipes]         = useState<RecipeRecord[]>([]);
   const [loading, setLoading]         = useState(false);
+  const [refreshing, setRefreshing]   = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [cacheDate, setCacheDate]     = useState<number | null>(null);
   const [selected, setSelected]       = useState<RecipeRecord | null>(null);
@@ -94,10 +95,10 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     setAgeFilter(defaultFilter);
   }, [defaultFilter]);
 
-  useEffect(() => {
+  function loadRecipes(isRefresh = false) {
     if (!isFirebaseConfigured) return;
     let mounted = true;
-    setLoading(true);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(null);
     fetchRecipes()
       .then((data) => {
@@ -105,9 +106,11 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         getRecipeCacheMeta().then((meta) => { if (mounted && meta) setCacheDate(meta.cachedAt); }).catch(() => {});
       })
       .catch((err) => { if (mounted) setError(err instanceof Error ? err.message : 'Could not load recipes.'); })
-      .finally(() => { if (mounted) setLoading(false); });
+      .finally(() => { if (mounted) { setLoading(false); setRefreshing(false); } });
     return () => { mounted = false; };
-  }, []);
+  }
+
+  useEffect(() => { loadRecipes(); }, []);
 
   useEffect(() => {
     if (!user || !isFirebaseConfigured) return;
@@ -172,8 +175,10 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       filtered = filtered.filter((r) => (r.totalMinutes ?? r.prepMinutes ?? 999) <= 30);
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((r) => r.title[language].toLowerCase().includes(q));
+      const normalize = (s: string) =>
+        s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const q = normalize(searchQuery);
+      filtered = filtered.filter((r) => normalize(r.title[language]).includes(q));
     }
     if (hideAllergens && reactionTerms.length > 0) {
       filtered = filtered.filter((r) => {
@@ -248,7 +253,18 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
   return (
     <>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadRecipes(true)}
+            tintColor="#6ECAC0"
+            colors={['#6ECAC0']}
+          />
+        }
+      >
         {/* ── Header ── */}
         <View style={s.header}>
           <View style={s.headerCopy}>
