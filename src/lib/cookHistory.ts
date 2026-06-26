@@ -35,6 +35,24 @@ export async function unmarkCooked(mealType: string, date?: Date): Promise<void>
   await AsyncStorage.setItem(PREFIX + dateKey(date), JSON.stringify(history));
 }
 
+export async function getRecentlyCookedIds(days = 14): Promise<string[]> {
+  const today = new Date();
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const history = await getDayHistory(d);
+    for (const entry of Object.values(history)) {
+      if (entry && !seen.has(entry.recipeId)) {
+        seen.add(entry.recipeId);
+        ids.push(entry.recipeId);
+      }
+    }
+  }
+  return ids;
+}
+
 export async function getCookStreak(): Promise<number> {
   const today = new Date();
   let streak = 0;

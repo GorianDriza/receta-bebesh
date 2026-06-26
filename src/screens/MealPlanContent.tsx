@@ -11,6 +11,7 @@ import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourite
 import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../lib/recipes';
 import { getAllRatings } from '../lib/ratings';
 import { getReactionTerms } from '../lib/foodTracker';
+import { getRecentlyCookedIds } from '../lib/cookHistory';
 import { computeAgeStage } from '../lib/users';
 import { AIPlanModal } from './AIPlanModal';
 import { useAuth } from '../providers/AuthProvider';
@@ -59,6 +60,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [searchQuery, setSearchQuery] = useState('');
   const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
   const [ratingsMap, setRatingsMap]   = useState<Record<string, number>>({});
+  const [recentIds, setRecentIds]         = useState<string[]>([]);
   const [reactionTerms, setReactionTerms] = useState<string[]>([]);
   const [reactionCount, setReactionCount] = useState(0);
   const [hideAllergens, setHideAllergens] = useState(false);
@@ -112,6 +114,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       setReactionTerms(terms);
       setReactionCount(count);
     }).catch(() => {});
+    getRecentlyCookedIds().then(setRecentIds).catch(() => {});
   }, []);
 
   async function toggleFavourite(recipe: RecipeRecord) {
@@ -321,6 +324,37 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         {userProfile?.babyBirthdate != null && (
           <MilestoneBanner babyBirthdate={userProfile.babyBirthdate} language={language} />
         )}
+
+        {/* ── Recently cooked ── */}
+        {recentIds.length > 0 && (() => {
+          const recipeMap = new Map(recipes.map((r) => [r.id, r]));
+          const recent = recentIds.map((id) => recipeMap.get(id)).filter((r): r is RecipeRecord => r != null);
+          if (recent.length === 0) return null;
+          return (
+            <View style={s.recentSection}>
+              <Text style={s.recentHeading}>
+                {language === 'sq-AL' ? '🍳 Gatuat Fundit' : '🍳 Recently Cooked'}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.recentRow}>
+                {recent.map((recipe) => {
+                  const img = recipe.image?.downloadUrl ?? recipe.image?.sourceUrl ?? null;
+                  return (
+                    <Pressable key={recipe.id} style={s.recentCard} onPress={() => setSelected(recipe)}>
+                      {img ? (
+                        <Image source={{ uri: img }} style={s.recentImg} resizeMode="cover" />
+                      ) : (
+                        <View style={[s.recentImg, s.recentImgEmpty]}>
+                          <Text style={s.recentEmoji}>{emojiForMealType(recipe.mealType)}</Text>
+                        </View>
+                      )}
+                      <Text style={s.recentTitle} numberOfLines={2}>{recipe.title[language]}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })()}
 
         {/* ── Section header ── */}
         <View style={s.sectionRow}>
@@ -663,6 +697,15 @@ const s = StyleSheet.create({
   ratingPill: { alignSelf: 'flex-start', backgroundColor: '#FFF8E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
+
+  recentSection: { gap: 10 },
+  recentHeading: { fontSize: 18, fontWeight: '800', letterSpacing: -0.4, color: '#111111' },
+  recentRow: { gap: 12, paddingRight: 8 },
+  recentCard: { width: 100, gap: 6, alignItems: 'center' },
+  recentImg: { width: 80, height: 80, borderRadius: 40 },
+  recentImgEmpty: { backgroundColor: '#F0EDE8', alignItems: 'center', justifyContent: 'center' },
+  recentEmoji: { fontSize: 36 },
+  recentTitle: { fontSize: 12, fontWeight: '600', color: '#3D3530', textAlign: 'center', lineHeight: 16 },
 
   allergenChip: {
     alignSelf: 'flex-start', borderRadius: 999,
