@@ -15,8 +15,17 @@ type Props = {
 
 function toDate(str: string): Date {
   if (!str) return new Date(2024, 0, 1);
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? new Date(2024, 0, 1) : d;
+  const parts = str.split('-').map(Number);
+  if (parts.length === 3 && parts.every(Number.isFinite)) {
+    const [year, month, day] = parts;
+    const localDate = new Date(year, month - 1, day);
+    if (!isNaN(localDate.getTime())) {
+      return localDate;
+    }
+  }
+
+  const fallbackDate = new Date(str);
+  return isNaN(fallbackDate.getTime()) ? new Date(2024, 0, 1) : fallbackDate;
 }
 
 function toYMD(d: Date): string {
