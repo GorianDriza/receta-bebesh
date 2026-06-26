@@ -51,15 +51,22 @@ export async function getCookStreak(): Promise<number> {
   return streak;
 }
 
-export async function getWeekCookSummary(): Promise<Array<{ dateKey: string; count: number }>> {
+export type WeekDaySummary = {
+  dateKey: string;
+  count: number;
+  entries: CookedEntry[];
+};
+
+export async function getWeekCookSummary(): Promise<WeekDaySummary[]> {
   const today = new Date();
-  const result: Array<{ dateKey: string; count: number }> = [];
+  const result: WeekDaySummary[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const key = dateKey(d);
     const history = await getDayHistory(d);
-    result.push({ dateKey: key, count: Object.keys(history).length });
+    const entries = Object.values(history).filter((e): e is CookedEntry => e != null);
+    result.push({ dateKey: key, count: entries.length, entries });
   }
   return result;
 }

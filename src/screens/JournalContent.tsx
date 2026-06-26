@@ -10,7 +10,7 @@ import {
   PlannerMealType,
   todayDayKey,
 } from '../lib/planner';
-import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary } from '../lib/cookHistory';
+import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary, WeekDaySummary } from '../lib/cookHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -40,7 +40,7 @@ export function JournalContent({ onLoginRequired }: Props) {
   const [loading, setLoading]       = useState(false);
   const [cooked, setCooked]         = useState<DayHistory>({});
   const [streak, setStreak]         = useState(0);
-  const [weekSummary, setWeekSummary] = useState<Array<{ dateKey: string; count: number }>>([]);
+  const [weekSummary, setWeekSummary] = useState<WeekDaySummary[]>([]);
 
   useEffect(() => {
     getDayHistory().then(setCooked).catch(() => {});
@@ -244,6 +244,33 @@ export function JournalContent({ onLoginRequired }: Props) {
           </Text>
         </Surface>
       )}
+
+      {/* ── Cooked this week ── */}
+      {weekSummary.some((d) => d.count > 0) && (
+        <>
+          <Text style={s.subHeading}>
+            {language === 'sq-AL' ? 'Javën Kjo' : 'This Week'}
+          </Text>
+          <View style={s.historyList}>
+            {weekSummary.filter((d) => d.entries.length > 0).map((day) => {
+              const parts = day.dateKey.split('-');
+              const dateLabel = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+                .toLocaleDateString(language === 'sq-AL' ? 'sq-AL' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              return (
+                <Surface key={day.dateKey} style={s.historyCard} elevation={0}>
+                  <Text style={s.historyDate}>{dateLabel}</Text>
+                  {day.entries.map((e, idx) => (
+                    <View key={idx} style={s.historyEntryRow}>
+                      <Text style={s.historyCheck}>✓</Text>
+                      <Text style={s.historyRecipe} numberOfLines={1}>{e.recipeTitle}</Text>
+                    </View>
+                  ))}
+                </Surface>
+              );
+            })}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -306,6 +333,13 @@ const s = StyleSheet.create({
 
   noticeCard: { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 16 },
   noticeText: { fontSize: 15, color: '#6E6560', textAlign: 'center' },
+
+  historyList: { gap: 10 },
+  historyCard: { borderRadius: 18, backgroundColor: '#FEFEFE', padding: 14, gap: 8, borderWidth: 1, borderColor: '#F0EDE8' },
+  historyDate: { fontSize: 13, fontWeight: '800', color: '#9E9590', textTransform: 'uppercase', letterSpacing: 0.5 },
+  historyEntryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  historyCheck: { fontSize: 14, color: '#6ECAC0', fontWeight: '800' },
+  historyRecipe: { flex: 1, fontSize: 14, color: '#1A1714', fontWeight: '600' },
 
   streakCard: {
     borderRadius: 28, backgroundColor: '#FFF9EC',
