@@ -68,7 +68,7 @@ export function HomeScreen() {
       <View style={s.screenArea}>
         {activeTab === 'meals'   && <MealPlanContent onAvatarPress={handleAvatarPress} onLoginRequired={() => setAuthView('login')} onShoppingPress={() => setShowShopping(true)} />}
         {activeTab === 'planner' && <PlannerContent onLoginRequired={() => setAuthView('login')} />}
-        {activeTab === 'spark'   && <QuickContent />}
+        {activeTab === 'spark'   && <QuickContent onLoginRequired={() => setAuthView('login')} />}
         {activeTab === 'journal' && <JournalContent onLoginRequired={() => setAuthView('login')} />}
         {activeTab === 'learn'   && <LearningContent />}
       </View>

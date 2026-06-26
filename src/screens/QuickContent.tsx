@@ -2,7 +2,10 @@ import { startTransition, useCallback, useEffect, useMemo, useState } from 'reac
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
+import { getDayHistory, DayHistory, markCooked, unmarkCooked } from '../lib/cookHistory';
+import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { computeAgeStage } from '../lib/users';
@@ -27,14 +30,19 @@ function shuffleSlice<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
-export function QuickContent() {
+type Props = { onLoginRequired?: () => void };
+
+export function QuickContent({ onLoginRequired }: Props) {
   const { language } = useLanguage();
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
   const [allRecipes, setAllRecipes] = useState<RecipeRecord[]>([]);
   const [picks, setPicks]           = useState<RecipeRecord[]>([]);
   const [loading, setLoading]       = useState(false);
   const [selected, setSelected]     = useState<RecipeRecord | null>(null);
+  const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
   const [tick, setTick]             = useState(0);
+  const [cooked, setCooked]         = useState<DayHistory>({});
+  const [favouriteIds, setFavIds]   = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -43,7 +51,35 @@ export function QuickContent() {
       .then((data) => startTransition(() => setAllRecipes(data)))
       .catch(() => {})
       .finally(() => setLoading(false));
+    getDayHistory().then(setCooked).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user || !isFirebaseConfigured) return;
+    getFavouriteIds(user.uid).then(setFavIds).catch(() => {});
+  }, [user]);
+
+  async function toggleFavourite(recipe: RecipeRecord) {
+    if (!user) { onLoginRequired?.(); return; }
+    const isFav = favouriteIds.has(recipe.id);
+    setFavIds((prev) => { const n = new Set(prev); isFav ? n.delete(recipe.id) : n.add(recipe.id); return n; });
+    try {
+      if (isFav) await removeFavourite(user.uid, recipe.id);
+      else await addFavourite(user.uid, recipe.id);
+    } catch {
+      setFavIds((prev) => { const n = new Set(prev); isFav ? n.add(recipe.id) : n.delete(recipe.id); return n; });
+    }
+  }
+
+  async function toggleCooked(recipe: RecipeRecord) {
+    const mealType = recipe.mealType;
+    if (cooked[mealType]) {
+      await unmarkCooked(mealType);
+    } else {
+      await markCooked(mealType, recipe.id, recipe.title[language]);
+    }
+    getDayHistory().then(setCooked).catch(() => {});
+  }
 
   const ageStage = useMemo(() => {
     const bd = userProfile?.babyBirthdate;
@@ -124,6 +160,8 @@ export function QuickContent() {
             const pal = PALETTE[i % PALETTE.length];
             const img = recipe.image?.downloadUrl ?? recipe.image?.sourceUrl ?? null;
             const dur = recipe.totalMinutes ?? recipe.prepMinutes;
+            const isFav = favouriteIds.has(recipe.id);
+            const isCooked = cooked[recipe.mealType]?.recipeId === recipe.id;
             return (
               <Pressable key={recipe.id} onPress={() => setSelected(recipe)}>
                 <Surface style={[s.card, { backgroundColor: pal.bg }]} elevation={0}>
@@ -139,6 +177,35 @@ export function QuickContent() {
                         <Text style={s.durText}>⏱ {dur} min</Text>
                       </View>
                     )}
+                    <View style={s.cardActions}>
+                      <Pressable
+                        style={[s.actionBtn, isFav && s.actionBtnFav]}
+                        onPress={(e) => { e.stopPropagation(); void toggleFavourite(recipe); }}
+                        hitSlop={6}
+                      >
+                        <Text style={s.actionBtnText}>{isFav ? '♥' : '♡'}</Text>
+                      </Pressable>
+                      <Pressable
+                        style={s.actionBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (!user) { onLoginRequired?.(); return; }
+                          setPlannerRecipe(recipe);
+                        }}
+                        hitSlop={6}
+                      >
+                        <Text style={s.actionBtnText}>+</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[s.actionBtn, isCooked && s.actionBtnCooked]}
+                        onPress={(e) => { e.stopPropagation(); void toggleCooked(recipe); }}
+                        hitSlop={6}
+                      >
+                        <Text style={[s.actionBtnText, isCooked && s.actionBtnTextCooked]}>
+                          {isCooked ? '✓' : '○'}
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
 
                   <View style={s.imageWrap}>
@@ -168,6 +235,9 @@ export function QuickContent() {
       </ScrollView>
 
       <RecipeDetailModal recipe={selected} onClose={() => setSelected(null)} />
+      {plannerRecipe != null && (
+        <PlannerPickerSheet recipe={plannerRecipe} onClose={() => setPlannerRecipe(null)} />
+      )}
     </>
   );
 }
@@ -204,6 +274,13 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.6, color: '#1A1714', lineHeight: 26 },
   durRow: { flexDirection: 'row', alignItems: 'center' },
   durText: { fontSize: 14, fontWeight: '600', color: '#4A4440' },
+
+  cardActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFF88', alignItems: 'center', justifyContent: 'center' },
+  actionBtnFav:    { backgroundColor: '#FFD9D9' },
+  actionBtnCooked: { backgroundColor: '#6ECAC0' },
+  actionBtnText:   { fontSize: 18, color: '#3A3030', fontWeight: '700', lineHeight: 22 },
+  actionBtnTextCooked: { color: '#FFFFFF' },
 
   imageWrap: { width: 100, justifyContent: 'center', alignItems: 'center' },
   image: { width: 96, height: 96, borderRadius: 48 },
