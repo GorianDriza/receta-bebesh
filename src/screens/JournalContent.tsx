@@ -10,6 +10,7 @@ import {
   PlannerMealType,
   todayDayKey,
 } from '../lib/planner';
+import { getDayHistory, DayHistory, markCooked, unmarkCooked } from '../lib/cookHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -35,8 +36,13 @@ type Props = { onLoginRequired?: () => void };
 export function JournalContent({ onLoginRequired }: Props) {
   const { language, t } = useLanguage();
   const { user } = useAuth();
-  const [dayPlan, setDayPlan] = useState<DayPlan>({});
-  const [loading, setLoading] = useState(false);
+  const [dayPlan, setDayPlan]       = useState<DayPlan>({});
+  const [loading, setLoading]       = useState(false);
+  const [cooked, setCooked]         = useState<DayHistory>({});
+
+  useEffect(() => {
+    getDayHistory().then(setCooked).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user || !isFirebaseConfigured) return;
@@ -149,6 +155,12 @@ export function JournalContent({ onLoginRequired }: Props) {
                 ) : null}
               </View>
 
+              {cooked[mealKey] && (
+                <View style={s.cookedBadge}>
+                  <Text style={s.cookedBadgeText}>✓</Text>
+                </View>
+              )}
+
               <View style={s.snapFooter}>
                 <View style={s.snapTextCol}>
                   <Text style={s.snapMeal}>
@@ -160,6 +172,23 @@ export function JournalContent({ onLoginRequired }: Props) {
                     </Text>
                   )}
                 </View>
+                {entry != null && (
+                  <Pressable
+                    style={[s.snapPlusBubble, cooked[mealKey] && s.snapCookedBubble]}
+                    onPress={async () => {
+                      if (cooked[mealKey]) {
+                        await unmarkCooked(mealKey);
+                      } else {
+                        await markCooked(mealKey, entry.recipeId, entry.recipeTitle);
+                      }
+                      getDayHistory().then(setCooked).catch(() => {});
+                    }}
+                  >
+                    <Text style={[s.snapPlusText, cooked[mealKey] && s.snapCookedText]}>
+                      {cooked[mealKey] ? '✓' : '○'}
+                    </Text>
+                  </Pressable>
+                )}
                 {entry == null && !loading && (
                   <View style={s.snapPlusBubble}>
                     <Text style={s.snapPlusText}>+</Text>
@@ -223,6 +252,15 @@ const s = StyleSheet.create({
   snapRecipe: { fontSize: 11, color: '#4A4440', lineHeight: 15, marginTop: 2 },
   snapPlusBubble: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFFCC', alignItems: 'center', justifyContent: 'center' },
   snapPlusText: { fontSize: 22, color: '#111111', fontWeight: '400', lineHeight: 26 },
+  snapCookedBubble: { backgroundColor: '#6ECAC0' },
+  snapCookedText: { color: '#FFFFFF', fontWeight: '800' },
+  cookedBadge: {
+    position: 'absolute', top: 10, right: 10,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#6ECAC0', alignItems: 'center', justifyContent: 'center',
+    zIndex: 2,
+  },
+  cookedBadgeText: { fontSize: 14, color: '#FFFFFF', fontWeight: '800' },
 
   guestBanner: {
     backgroundColor: '#FFF9E0', borderRadius: 18,
