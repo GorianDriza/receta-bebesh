@@ -106,6 +106,14 @@ export function FoodTrackerModal({ visible, onClose }: Props) {
                         <Text style={[s.foodName, status !== 'untried' && s.foodNameActive]} numberOfLines={2}>
                           {language === 'sq-AL' ? food.sq : food.en}
                         </Text>
+                        {map[food.id]?.triedAt != null && status !== 'untried' && (
+                          <Text style={s.triedDate}>
+                            {new Date(map[food.id]!.triedAt!).toLocaleDateString(
+                              language === 'sq-AL' ? 'sq-AL' : 'en-US',
+                              { month: 'short', day: 'numeric' },
+                            )}
+                          </Text>
+                        )}
                         {status === 'safe'     && <Text style={s.statusDot}>✓</Text>}
                         {status === 'reaction' && <Text style={[s.statusDot, s.statusDotReaction]}>⚠</Text>}
                       </Pressable>
@@ -160,4 +168,5 @@ const s = StyleSheet.create({
     fontSize: 12, fontWeight: '800', color: '#3AABA0',
   },
   statusDotReaction: { color: '#E05252' },
+  triedDate: { fontSize: 9, color: '#9E99B2', marginTop: 1, textAlign: 'center' },
 });
