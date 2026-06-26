@@ -39,6 +39,7 @@ function durationLabel(r: RecipeRecord): string {
 }
 
 type FilterId = RecipeStage | 'all' | 'fav';
+type MealFilter = RecipeRecord['mealType'] | 'any';
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
 
@@ -61,8 +62,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     return bd ? computeAgeStage(bd) : 'all';
   }, [userProfile?.babyBirthdate]);
 
-  const [ageFilter, setAgeFilter] = useState<FilterId>(defaultFilter);
-  const [showAll, setShowAll]     = useState(false);
+  const [ageFilter, setAgeFilter]   = useState<FilterId>(defaultFilter);
+  const [mealFilter, setMealFilter] = useState<MealFilter>('any');
+  const [showAll, setShowAll]       = useState(false);
 
   // Re-apply default when profile loads
   useEffect(() => {
@@ -126,12 +128,15 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     } else if (ageFilter !== 'all') {
       filtered = filtered.filter((r) => r.ageStage === ageFilter);
     }
+    if (mealFilter !== 'any') {
+      filtered = filtered.filter((r) => r.mealType === mealFilter);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((r) => r.title[language].toLowerCase().includes(q));
     }
     return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, favouriteIds, searchQuery, language, showAll]);
+  }, [recipes, ageFilter, mealFilter, favouriteIds, searchQuery, language, showAll]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -157,6 +162,16 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     { id: '9-12m', label: '9-12m' },
     { id: '12m+',  label: '12m+' },
     { id: 'fav',   label: language === 'sq-AL' ? '♡ Ruajtura' : '♡ Saved' },
+  ];
+
+  const MEAL_FILTERS: Array<{ id: MealFilter; label: string }> = [
+    { id: 'any',         label: language === 'sq-AL' ? 'Çdo vakt' : 'Any meal' },
+    { id: 'breakfast',   label: language === 'sq-AL' ? '🍳 Mëngjes' : '🍳 Breakfast' },
+    { id: 'lunch',       label: language === 'sq-AL' ? '🥗 Drekë' : '🥗 Lunch' },
+    { id: 'dinner',      label: language === 'sq-AL' ? '🍲 Darkë' : '🍲 Dinner' },
+    { id: 'snack',       label: language === 'sq-AL' ? '🍓 Meze' : '🍓 Snack' },
+    { id: 'puree',       label: language === 'sq-AL' ? '🥣 Pure' : '🥣 Puree' },
+    { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Gishta' : '🫓 Finger food' },
   ];
 
   return (
@@ -301,7 +316,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           )}
         </View>
 
-        {/* ── Filter chips ── */}
+        {/* ── Age filter chips ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
           {FILTERS.map((f) => (
             <Pressable
@@ -310,6 +325,21 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               onPress={() => { setAgeFilter(f.id); setShowAll(false); }}
             >
               <Text style={[s.filterChipText, ageFilter === f.id && s.filterChipTextOn]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── Meal type filter chips ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {MEAL_FILTERS.map((f) => (
+            <Pressable
+              key={f.id}
+              style={[s.filterChip, s.filterChipSmall, mealFilter === f.id && s.filterChipOn]}
+              onPress={() => { setMealFilter(f.id); setShowAll(false); }}
+            >
+              <Text style={[s.filterChipText, s.filterChipTextSmall, mealFilter === f.id && s.filterChipTextOn]}>
                 {f.label}
               </Text>
             </Pressable>
@@ -508,8 +538,10 @@ const s = StyleSheet.create({
     borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10,
     backgroundColor: '#FFFFFFD9',
   },
+  filterChipSmall: { paddingHorizontal: 14, paddingVertical: 7 },
   filterChipOn: { backgroundColor: '#1A1714' },
   filterChipText: { fontSize: 14, fontWeight: '700', color: '#3D3530' },
+  filterChipTextSmall: { fontSize: 12 },
   filterChipTextOn: { color: '#FFFFFF' },
 
   cardStack: { gap: 14 },
