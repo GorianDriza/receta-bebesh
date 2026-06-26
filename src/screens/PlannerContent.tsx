@@ -30,6 +30,7 @@ import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { addShoppingItem } from '../lib/shoppingList';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
+import { RecipeDetailModal } from './RecipeDetailModal';
 
 const DAYS: Array<{ key: DayKey; sq: string; en: string }> = [
   { key: 'mon', sq: 'Hë', en: 'Mo' },
@@ -124,6 +125,8 @@ export function PlannerContent({ onLoginRequired }: Props) {
   }
 
   const [addedToList, setAddedToList] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeRecord | null>(null);
+  const recipeMap = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
 
   async function addWeekToShoppingList() {
     const recipeMap = new Map(recipes.map((r) => [r.id, r]));
@@ -237,7 +240,13 @@ export function PlannerContent({ onLoginRequired }: Props) {
                     <Text style={s.slotLabel}>{language === 'sq-AL' ? m.sq : m.en}</Text>
                   </View>
                   {entry ? (
-                    <View style={s.slotFilled}>
+                    <Pressable
+                      style={s.slotFilled}
+                      onPress={() => {
+                        const r = recipeMap.get(entry.recipeId);
+                        if (r) setSelectedRecipe(r);
+                      }}
+                    >
                       {entry.recipeImage ? (
                         <Image
                           source={{ uri: entry.recipeImage }}
@@ -252,10 +261,10 @@ export function PlannerContent({ onLoginRequired }: Props) {
                       <Text style={s.slotRecipeTitle} numberOfLines={2}>
                         {entry.recipeTitle}
                       </Text>
-                      <Pressable onPress={() => removeEntry(m.key)} hitSlop={10} style={s.removeBtn}>
+                      <Pressable onPress={(e) => { e.stopPropagation(); removeEntry(m.key); }} hitSlop={10} style={s.removeBtn}>
                         <IconButton icon="close-circle" size={20} iconColor="#E05252" style={s.icon0} />
                       </Pressable>
-                    </View>
+                    </Pressable>
                   ) : (
                     <Pressable
                       style={s.slotEmpty}
@@ -344,6 +353,8 @@ export function PlannerContent({ onLoginRequired }: Props) {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
     </>
   );
 }
