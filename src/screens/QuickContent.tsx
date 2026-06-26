@@ -43,6 +43,8 @@ export function QuickContent({ onLoginRequired }: Props) {
   const [tick, setTick]             = useState(0);
   const [cooked, setCooked]         = useState<DayHistory>({});
   const [favouriteIds, setFavIds]   = useState<Set<string>>(new Set());
+  type MealTypeFilter = 'any' | 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'puree' | 'finger-food';
+  const [mealTypeFilter, setMealTypeFilter] = useState<MealTypeFilter>('any');
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -88,10 +90,14 @@ export function QuickContent({ onLoginRequired }: Props) {
 
   const pool = useMemo(() => {
     if (!allRecipes.length) return [];
-    return ageStage
+    let filtered = ageStage
       ? allRecipes.filter((r) => r.ageStage === ageStage)
       : allRecipes;
-  }, [allRecipes, ageStage]);
+    if (mealTypeFilter !== 'any') {
+      filtered = filtered.filter((r) => r.mealType === mealTypeFilter);
+    }
+    return filtered.length > 0 ? filtered : (ageStage ? allRecipes.filter((r) => r.ageStage === ageStage) : allRecipes);
+  }, [allRecipes, ageStage, mealTypeFilter]);
 
   // Recompute picks whenever tick or pool changes
   useEffect(() => {
@@ -127,6 +133,29 @@ export function QuickContent({ onLoginRequired }: Props) {
             <Text style={s.shuffleEmoji}>🔀</Text>
           </Pressable>
         </View>
+
+        {/* Meal type filter chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {([
+            { id: 'any',         label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
+            { id: 'breakfast',   label: language === 'sq-AL' ? '🍳 Mëngjes' : '🍳 Breakfast' },
+            { id: 'lunch',       label: language === 'sq-AL' ? '🥗 Drekë' : '🥗 Lunch' },
+            { id: 'dinner',      label: language === 'sq-AL' ? '🍲 Darkë' : '🍲 Dinner' },
+            { id: 'snack',       label: language === 'sq-AL' ? '🍓 Meze' : '🍓 Snack' },
+            { id: 'puree',       label: language === 'sq-AL' ? '🥣 Pure' : '🥣 Puree' },
+            { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Gishta' : '🫓 Finger food' },
+          ] as const).map((f) => (
+            <Pressable
+              key={f.id}
+              style={[s.filterChip, mealTypeFilter === f.id && s.filterChipOn]}
+              onPress={() => { setMealTypeFilter(f.id as MealTypeFilter); setTick((t) => t + 1); }}
+            >
+              <Text style={[s.filterChipText, mealTypeFilter === f.id && s.filterChipTextOn]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         {loading && (
           <View style={s.cardList}>
@@ -255,6 +284,15 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   shuffleEmoji: { fontSize: 24 },
+
+  filterRow: { gap: 8, paddingVertical: 2 },
+  filterChip: {
+    borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#FFFFFFD9',
+  },
+  filterChipOn: { backgroundColor: '#1A1714' },
+  filterChipText: { fontSize: 13, fontWeight: '700', color: '#3D3530' },
+  filterChipTextOn: { color: '#FFFFFF' },
 
   noticeCard: { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 20 },
   noticeText: { fontSize: 16, color: '#6E6560', textAlign: 'center' },
