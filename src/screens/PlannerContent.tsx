@@ -64,8 +64,10 @@ export function PlannerContent({ onLoginRequired }: Props) {
   const { language } = useLanguage();
   const { user } = useAuth();
 
-  const [weekKey, setWeekKey]     = useState(() => getISOWeekKey(new Date()));
+  const todayWeekKey = getISOWeekKey(new Date());
+  const [weekKey, setWeekKey]     = useState(() => todayWeekKey);
   const [activeDay, setActiveDay] = useState<DayKey>(todayDayKey);
+  const isCurrentWeek = weekKey === todayWeekKey;
   const [weekPlan, setWeekPlan]   = useState<WeekPlan>({});
   const [recipes, setRecipes]     = useState<RecipeRecord[]>([]);
   const [loading, setLoading]     = useState(false);
@@ -178,7 +180,18 @@ export function PlannerContent({ onLoginRequired }: Props) {
           <Pressable style={s.navBtn} onPress={() => setWeekKey((k) => offsetWeek(k, -1))} hitSlop={8}>
             <Text style={s.navArrow}>‹</Text>
           </Pressable>
-          <Text style={s.weekLabel}>{formatWeekRange(weekKey, language)}</Text>
+          <Pressable
+            style={s.weekLabelBtn}
+            onPress={() => { if (!isCurrentWeek) { setWeekKey(todayWeekKey); setActiveDay(todayDayKey); } }}
+            hitSlop={4}
+          >
+            <Text style={s.weekLabel}>{formatWeekRange(weekKey, language)}</Text>
+            {!isCurrentWeek && (
+              <Text style={s.todayHint}>
+                {language === 'sq-AL' ? '⟳ Sot' : '⟳ Today'}
+              </Text>
+            )}
+          </Pressable>
           <Pressable style={s.navBtn} onPress={() => setWeekKey((k) => offsetWeek(k, 1))} hitSlop={8}>
             <Text style={s.navArrow}>›</Text>
           </Pressable>
@@ -352,7 +365,9 @@ const s = StyleSheet.create({
   },
   navBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   navArrow: { fontSize: 24, color: '#1A1714', fontWeight: '700' },
+  weekLabelBtn: { flex: 1, alignItems: 'center', gap: 2 },
   weekLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
+  todayHint: { fontSize: 12, fontWeight: '700', color: '#6ECAC0' },
 
   dayRow: { gap: 8, paddingVertical: 4 },
   dayPill: {
