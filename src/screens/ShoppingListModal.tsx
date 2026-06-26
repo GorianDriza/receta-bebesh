@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -27,6 +28,7 @@ const L: Record<AppLanguage, {
   clearChecked: string;
   addPlaceholder: string;
   checked: string;
+  shareTitle: string;
 }> = {
   'sq-AL': {
     title: 'Lista e Blerjes',
@@ -34,6 +36,7 @@ const L: Record<AppLanguage, {
     clearChecked: 'Fshi të kontrolluarat',
     addPlaceholder: 'Shto artikull...',
     checked: 'Të kontrolluarat',
+    shareTitle: 'Lista e Blerjes - Receta Bebesh',
   },
   en: {
     title: 'Shopping List',
@@ -41,6 +44,7 @@ const L: Record<AppLanguage, {
     clearChecked: 'Clear checked',
     addPlaceholder: 'Add item...',
     checked: 'Checked',
+    shareTitle: 'Shopping List - Receta Bebesh',
   },
 };
 
@@ -148,6 +152,28 @@ export function ShoppingListModal({ visible, onClose }: Props) {
     await load();
   }
 
+  async function handleShare() {
+    const lines: string[] = [labels.shareTitle, ''];
+    const groups: Array<{ cat: Category; items: ShoppingItem[] }> = CATEGORIES
+      .map((cat) => ({
+        cat,
+        items: unchecked.filter((item) => categorize(item.text) === cat.id),
+      }))
+      .filter((g) => g.items.length > 0);
+    for (const { cat, items: catItems } of groups) {
+      lines.push(`${cat.emoji} ${language === 'sq-AL' ? cat.sq : cat.en}`);
+      for (const item of catItems) lines.push(`• ${item.text}`);
+      lines.push('');
+    }
+    if (checked.length > 0) {
+      lines.push(`✓ ${labels.checked}`);
+      for (const item of checked) lines.push(`• ${item.text}`);
+    }
+    try {
+      await Share.share({ message: lines.join('\n').trim() });
+    } catch {}
+  }
+
   const unchecked = items.filter((i) => !i.checked);
   const checked   = items.filter((i) => i.checked);
   const hasChecked = checked.length > 0;
@@ -186,6 +212,9 @@ export function ShoppingListModal({ visible, onClose }: Props) {
           {/* Header */}
           <View style={s.header}>
             <Text style={s.title}>{labels.title}</Text>
+            {items.length > 0 && (
+              <IconButton icon="share-variant-outline" size={20} iconColor="#6E6580" style={s.icon0} onPress={handleShare} />
+            )}
             <IconButton icon="close" size={22} iconColor="#1A1714" style={s.icon0} onPress={onClose} />
           </View>
 
