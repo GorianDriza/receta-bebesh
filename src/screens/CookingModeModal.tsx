@@ -1,6 +1,7 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import * as Speech from 'expo-speech';
-import { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Text } from 'react-native-paper';
@@ -12,10 +13,19 @@ import { useLanguage } from '../providers/LanguageProvider';
 
 const L: Record<AppLanguage, {
   step: string; of: string; done: string; finish: string; prev: string; next: string;
+  timer: string; timerDone: string; startTimer: string;
 }> = {
-  'sq-AL': { step: 'Hapi', of: 'nga', done: 'Gatuar!', finish: 'Mbaro', prev: 'Mbrapa', next: 'Përpara' },
-  en:      { step: 'Step', of: 'of',  done: 'Done!',   finish: 'Finish', prev: 'Back',  next: 'Next'    },
+  'sq-AL': { step: 'Hapi', of: 'nga', done: 'Gatuar!', finish: 'Mbaro', prev: 'Mbrapa', next: 'Përpara', timer: 'Kronometër', timerDone: '⏰ Koha mbaroi!', startTimer: 'Fillo' },
+  en:      { step: 'Step', of: 'of',  done: 'Done!',   finish: 'Finish', prev: 'Back',  next: 'Next',    timer: 'Timer',      timerDone: '⏰ Time\'s up!',    startTimer: 'Start' },
 };
+
+function parseStepMinutes(text: string): number | null {
+  const minsMatch = text.match(/(\d+)\s*(?:min(?:ute)?s?|minuta|minut)/i);
+  if (minsMatch) return parseInt(minsMatch[1], 10);
+  const secsMatch = text.match(/(\d+)\s*(?:sec(?:ond)?s?|sekonda?)/i);
+  if (secsMatch) return Math.ceil(parseInt(secsMatch[1], 10) / 60);
+  return null;
+}
 
 const SPEECH_LANG: Record<AppLanguage, string> = {
   'sq-AL': 'sq',
@@ -32,10 +42,49 @@ export function CookingModeModal({ recipe, visible, onClose }: Props) {
   const steps = recipe.steps[language] ?? [];
   const [step, setStep] = useState(0);
   const [speaking, setSpeaking] = useState(false);
+  const [timerSecs, setTimerSecs] = useState<number | null>(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerDone, setTimerDone] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stepMinutes = parseStepMinutes(steps[step] ?? '');
+
+  function startTimer(mins: number) {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerSecs(mins * 60);
+    setTimerRunning(true);
+    setTimerDone(false);
+    timerRef.current = setInterval(() => {
+      setTimerSecs((prev) => {
+        if (prev == null || prev <= 1) {
+          clearInterval(timerRef.current!);
+          setTimerRunning(false);
+          setTimerDone(true);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerRunning(false);
+    setTimerSecs(null);
+    setTimerDone(false);
+  }
 
   useEffect(() => {
-    if (!visible) Speech.stop();
+    stopTimer();
+    setTimerDone(false);
+  }, [step]);
+
+  useEffect(() => {
+    if (!visible) { stopTimer(); Speech.stop(); }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [visible]);
+
 
   function speakStep() {
     const text = steps[step];
@@ -96,6 +145,26 @@ export function CookingModeModal({ recipe, visible, onClose }: Props) {
             <Text style={s.stepNumBig}>{step + 1}</Text>
             <Text style={s.stepText}>{steps[step]}</Text>
           </Animated.View>
+
+          {/* Timer */}
+          <View style={s.timerRow}>
+            {timerDone ? (
+              <Pressable style={s.timerDoneBtn} onPress={stopTimer}>
+                <Text style={s.timerDoneText}>{labels.timerDone} ✕</Text>
+              </Pressable>
+            ) : timerRunning && timerSecs != null ? (
+              <Pressable style={s.timerRunning} onPress={stopTimer}>
+                <Text style={s.timerSecs}>
+                  {String(Math.floor(timerSecs / 60)).padStart(2, '0')}:{String(timerSecs % 60).padStart(2, '0')}
+                </Text>
+                <Text style={s.timerStopLabel}>✕</Text>
+              </Pressable>
+            ) : stepMinutes != null ? (
+              <Pressable style={s.timerStartBtn} onPress={() => startTimer(stepMinutes)}>
+                <Text style={s.timerStartText}>⏱ {labels.startTimer} {stepMinutes} min</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           {/* Navigation */}
           <View style={s.navRow}>
@@ -165,4 +234,24 @@ const s = StyleSheet.create({
   speakBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2D2748', alignItems: 'center', justifyContent: 'center' },
   speakBtnOn: { backgroundColor: '#6ECAC0' },
   speakIcon: { fontSize: 20 },
+
+  timerRow: { paddingHorizontal: 24, paddingBottom: 8, alignItems: 'center' },
+  timerStartBtn: {
+    backgroundColor: '#2D2748', borderRadius: 999,
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#6ECAC044',
+  },
+  timerStartText: { fontSize: 14, fontWeight: '700', color: '#6ECAC0' },
+  timerRunning: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#6ECAC0', borderRadius: 999,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  timerSecs: { fontSize: 22, fontWeight: '900', color: '#1C1730', letterSpacing: 2 },
+  timerStopLabel: { fontSize: 14, fontWeight: '700', color: '#1C173088' },
+  timerDoneBtn: {
+    backgroundColor: '#FFD600', borderRadius: 999,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  timerDoneText: { fontSize: 15, fontWeight: '800', color: '#1C1730' },
 });
