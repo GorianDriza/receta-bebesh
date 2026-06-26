@@ -34,3 +34,32 @@ export async function unmarkCooked(mealType: string, date?: Date): Promise<void>
   delete history[mealType];
   await AsyncStorage.setItem(PREFIX + dateKey(date), JSON.stringify(history));
 }
+
+export async function getCookStreak(): Promise<number> {
+  const today = new Date();
+  let streak = 0;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const history = await getDayHistory(d);
+    if (Object.keys(history).length > 0) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+  return streak;
+}
+
+export async function getWeekCookSummary(): Promise<Array<{ dateKey: string; count: number }>> {
+  const today = new Date();
+  const result: Array<{ dateKey: string; count: number }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = dateKey(d);
+    const history = await getDayHistory(d);
+    result.push({ dateKey: key, count: Object.keys(history).length });
+  }
+  return result;
+}

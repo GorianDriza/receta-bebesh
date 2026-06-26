@@ -10,7 +10,7 @@ import {
   PlannerMealType,
   todayDayKey,
 } from '../lib/planner';
-import { getDayHistory, DayHistory, markCooked, unmarkCooked } from '../lib/cookHistory';
+import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary } from '../lib/cookHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -39,9 +39,13 @@ export function JournalContent({ onLoginRequired }: Props) {
   const [dayPlan, setDayPlan]       = useState<DayPlan>({});
   const [loading, setLoading]       = useState(false);
   const [cooked, setCooked]         = useState<DayHistory>({});
+  const [streak, setStreak]         = useState(0);
+  const [weekSummary, setWeekSummary] = useState<Array<{ dateKey: string; count: number }>>([]);
 
   useEffect(() => {
     getDayHistory().then(setCooked).catch(() => {});
+    getCookStreak().then(setStreak).catch(() => {});
+    getWeekCookSummary().then(setWeekSummary).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -60,6 +64,35 @@ export function JournalContent({ onLoginRequired }: Props) {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
       <Text style={s.heading}>{t[language].home.journalTitle}</Text>
+
+      {/* ── Streak + week heatmap ── */}
+      <Surface style={s.streakCard} elevation={0}>
+        <View style={s.streakLeft}>
+          <Text style={s.streakNumber}>{streak}</Text>
+          <Text style={s.streakLabel}>
+            {language === 'sq-AL' ? 'ditë radhazi 🔥' : 'day streak 🔥'}
+          </Text>
+        </View>
+        <View style={s.weekRow}>
+          {weekSummary.map((day) => {
+            const parts = day.dateKey.split('-');
+            const dayNum = Number(parts[2]);
+            const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
+            return (
+              <View key={day.dateKey} style={s.dayCol}>
+                <View style={[
+                  s.daydot,
+                  day.count > 0 && s.daydotActive,
+                  isToday && s.daydotToday,
+                ]}>
+                  {day.count > 0 && <Text style={s.daydotCount}>{day.count}</Text>}
+                </View>
+                <Text style={[s.dayLabel, isToday && s.dayLabelToday]}>{dayNum}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </Surface>
 
       {/* Calories panel */}
       <Surface style={s.panel} elevation={0}>
@@ -182,6 +215,8 @@ export function JournalContent({ onLoginRequired }: Props) {
                         await markCooked(mealKey, entry.recipeId, entry.recipeTitle);
                       }
                       getDayHistory().then(setCooked).catch(() => {});
+                      getCookStreak().then(setStreak).catch(() => {});
+                      getWeekCookSummary().then(setWeekSummary).catch(() => {});
                     }}
                   >
                     <Text style={[s.snapPlusText, cooked[mealKey] && s.snapCookedText]}>
@@ -271,4 +306,26 @@ const s = StyleSheet.create({
 
   noticeCard: { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 16 },
   noticeText: { fontSize: 15, color: '#6E6560', textAlign: 'center' },
+
+  streakCard: {
+    borderRadius: 28, backgroundColor: '#FFF9EC',
+    padding: 18, flexDirection: 'row',
+    alignItems: 'center', gap: 16,
+    borderWidth: 1, borderColor: '#FFE9A8',
+  },
+  streakLeft: { alignItems: 'center', minWidth: 52 },
+  streakNumber: { fontSize: 40, lineHeight: 42, fontWeight: '800', color: '#111111' },
+  streakLabel: { fontSize: 12, color: '#7A6200', fontWeight: '700', textAlign: 'center', marginTop: 2 },
+  weekRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
+  dayCol: { alignItems: 'center', gap: 4 },
+  daydot: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: '#F0EDE0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  daydotActive: { backgroundColor: '#6ECAC0' },
+  daydotToday: { borderWidth: 2, borderColor: '#111111' },
+  daydotCount: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  dayLabel: { fontSize: 11, color: '#9E9590', fontWeight: '600' },
+  dayLabelToday: { color: '#111111', fontWeight: '800' },
 });
