@@ -27,16 +27,21 @@ const SOURCE_ROOT = 'https://babyfoode.com';
 const DEFAULT_IMPORT_LIMIT = 12;
 
 const CATEGORY_PAGES = [
-  'https://babyfoode.com',
-  'https://babyfoode.com/page/2/',
-  'https://babyfoode.com/page/3/',
-  'https://babyfoode.com/page/4/',
-  'https://babyfoode.com/page/5/',
-  'https://babyfoode.com/page/6/',
-  'https://babyfoode.com/page/7/',
-  'https://babyfoode.com/page/8/',
-  'https://babyfoode.com/page/9/',
-  'https://babyfoode.com/page/10/',
+  'https://babyfoode.com/recipes/',
+  'https://babyfoode.com/recipes/page/2/',
+  'https://babyfoode.com/recipes/page/3/',
+  'https://babyfoode.com/recipes/page/4/',
+  'https://babyfoode.com/recipes/page/5/',
+  'https://babyfoode.com/recipes/page/6/',
+  'https://babyfoode.com/recipes/page/7/',
+  'https://babyfoode.com/recipes/page/8/',
+  'https://babyfoode.com/recipes/page/9/',
+  'https://babyfoode.com/recipes/page/10/',
+  'https://babyfoode.com/recipes/page/11/',
+  'https://babyfoode.com/recipes/page/12/',
+  'https://babyfoode.com/recipes/page/13/',
+  'https://babyfoode.com/recipes/page/14/',
+  'https://babyfoode.com/recipes/page/15/',
 ];
 const GEMINI_INTERACTIONS_URL =
   'https://generativelanguage.googleapis.com/v1beta/interactions';
@@ -614,26 +619,21 @@ async function translateRecipeWithGemini(recipe) {
 
 function extractRecipeLinks(html) {
   const links = new Set();
-  const matches = html.matchAll(/href="(https:\/\/babyfoode\.com\/[^"]+)"/gi);
+  const matches = html.matchAll(/href="(https:\/\/babyfoode\.com\/[^"#?]+)"/gi);
+
+  const SKIP = [
+    '/category/', '/tag/', '/author/', '/about', '/contact', '/page/',
+    '/recipes/', '/privacy', '/terms', '/sitemap', '/feed', '/wp-',
+  ];
 
   for (const match of matches) {
-    const url = match[1];
-
-    if (!url.includes('/blog/')) {
-      continue;
-    }
-
-    if (
-      url.includes('/category/') ||
-      url.includes('/tag/') ||
-      url.includes('/author/') ||
-      url.includes('/about') ||
-      url.includes('/contact')
-    ) {
-      continue;
-    }
-
-    links.add(url.split('#')[0].split('?')[0]);
+    const url = match[1].replace(/\/$/, '') + '/';
+    // Must have at least one path segment that looks like a slug
+    const { pathname } = new URL(url);
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts.length < 1) continue;
+    if (SKIP.some((s) => url.includes(s))) continue;
+    links.add(url);
   }
 
   return [...links];

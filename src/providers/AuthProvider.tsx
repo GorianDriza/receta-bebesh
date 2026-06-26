@@ -3,6 +3,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { firebaseAuth } from '../lib/auth';
 import { isFirebaseConfigured } from '../lib/firebase';
+import { scheduleMealReminders, cancelMealReminders } from '../lib/notifications';
 import { getUserProfile, UserProfile } from '../lib/users';
 
 const PROFILE_CACHE_KEY = '@receta_bebesh/profile';
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await getUserProfile(u.uid);
       setUserProfile(profile);
       await writeCachedProfile(profile);
+      void scheduleMealReminders(profile?.babyName || undefined);
     } catch {
       if (!cached) setUserProfile(null);
     }
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserProfile(null);
         await writeCachedProfile(null);
+        void cancelMealReminders();
       }
       setIsLoading(false);
     });

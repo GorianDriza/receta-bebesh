@@ -72,6 +72,21 @@ module.exports = {
     plugins: [
       'expo-localization',
       '@react-native-community/datetimepicker',
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'The app needs access to your photos to set a profile picture.',
+          cameraPermission: false,
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/icon.png',
+          color: '#6ECAC0',
+          sounds: [],
+        },
+      ],
     ],
   },
 };

@@ -11,6 +11,7 @@ export type UserProfile = {
   language: AppLanguage;
   createdAt: string;
   updatedAt: string;
+  photoBase64?: string; // data:image/jpeg;base64,... (compressed thumbnail ~10–30 KB)
 };
 
 export type AgeStage = '4-6m' | '6-8m' | '9-12m' | '12m+';

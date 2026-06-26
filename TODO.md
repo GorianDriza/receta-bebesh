@@ -1,4 +1,47 @@
-# TODO
+# Receta Bebesh — Feature Roadmap
+
+---
+
+## New Features (roadmap)
+
+### Implemented this sprint
+- [x] Profile photo upload (avatar tap → gallery → compress → Firebase RTDB)
+- [x] Recipe card stagger entrance animations (react-native-reanimated v4 FadeInDown)
+- [x] Local push notifications — daily meal reminders at 12:00 & 17:30
+- [x] Hero card redesign (no more Firebase console link, personalized per user state)
+- [x] Guest mode — app opens without forced login
+- [x] DatePicker for baby birthdate (inline iOS spinner, native Android dialog)
+- [x] SafeAreaView inside Modal (fixes notch/back-button on iPhone 13 Pro Max)
+- [x] Persistent login session + instant profile cache (AsyncStorage)
+- [x] Login redirect for guest actions (heart, +, planner slots)
+
+### Short-term (next sessions)
+- [ ] **Baby food intro tracker** — checklist of foods baby has tried; mark allergies / reactions; filter recipes by "already introduced" ingredients
+- [ ] **Shopping list** — tap ingredient → add to running list; dedicated view with checkboxes and "clear done" action
+- [ ] **Cooking mode** — full-screen step-by-step; large text; `expo-keep-awake` keeps screen on while cooking
+- [ ] **Personal recipe notes + star rating** — 1-5 stars + free-text note per recipe per user; shown on card
+- [ ] **Baby growth milestones banner** — age-aware callout ("At 6m: start purees!") that rotates weekly
+
+### Mid-term
+- [ ] **Meal history calendar** — log "cooked on date"; calendar heat-map; streak counter
+- [ ] **Multiple baby profiles** — support for siblings; switcher in header
+- [ ] **Recipe sharing** — share card as image or deep-link via `expo-sharing`
+- [ ] **Nutrition info display** — calories / protein / iron / vitamin per recipe
+- [ ] **Offline mode** — cache recipes in AsyncStorage; stale indicator when offline
+- [ ] **Community meal photos** — users submit their prepared-meal photo; carousel on recipe detail
+
+### Long-term / Nice-to-have
+- [ ] **Weight & height tracker** — log measurements; chart with `react-native-svg`
+- [ ] **AI weekly plan** — Gemini generates 7-day plan from age + favourites
+- [ ] **Allergy-aware filter** — mark allergens (nuts, egg, dairy…); hide matching recipes
+- [ ] **Voice step-by-step** — read recipe aloud in Albanian or English via TTS
+- [ ] **Apple / Google Sign-In** — needs EAS dev build (`eas build --profile development`)
+- [ ] **Firebase Storage photos** — upgrade to Blaze; full-res avatars + recipe images in Cloud Storage
+- [ ] **Remote push notifications** — EAS build + FCM; "new recipe added" alerts
+
+---
+
+# TODO (original)
 
 ## Current UI
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -62,11 +63,12 @@ export function ProfileModal({ visible, onClose }: Props) {
   const { user, userProfile, refreshProfile } = useAuth();
   const l = L[language];
 
-  const [name, setName]         = useState('');
-  const [babyName, setBabyName] = useState('');
-  const [babyBd, setBabyBd]     = useState('');
-  const [saving, setSaving]     = useState(false);
-  const [saved, setSaved]       = useState(false);
+  const [name, setName]             = useState('');
+  const [babyName, setBabyName]     = useState('');
+  const [babyBd, setBabyBd]         = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | undefined>(undefined);
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
 
   // Sync fields each time modal opens or profile loads from cache/Firebase
   useEffect(() => {
@@ -74,7 +76,59 @@ export function ProfileModal({ visible, onClose }: Props) {
     setName(userProfile?.displayName ?? user?.displayName ?? '');
     setBabyName(userProfile?.babyName ?? '');
     setBabyBd(userProfile?.babyBirthdate ?? '');
+    setPhotoBase64(userProfile?.photoBase64 ?? undefined);
   }, [visible, userProfile, user?.displayName]);
+
+  async function handlePickPhoto() {
+    // Both modules require a native dev build — not available in Expo Go.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let picker: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let manip: any = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      picker = require('expo-image-picker');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      manip = require('expo-image-manipulator');
+    } catch {
+      Alert.alert(
+        language === 'sq-AL' ? 'Kërkon dev build' : 'Dev build required',
+        language === 'sq-AL'
+          ? 'Ngarkimi i fotove kërkon EAS development build. Ekzekutoni: eas build --profile development'
+          : 'Photo upload requires an EAS development build. Run: eas build --profile development',
+      );
+      return;
+    }
+
+    const { status } = await picker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        language === 'sq-AL' ? 'Leje e nevojshme' : 'Permission required',
+        language === 'sq-AL'
+          ? 'Aplikacioni ka nevojë për qasje në fotografi.'
+          : 'The app needs access to your photos.',
+      );
+      return;
+    }
+
+    const result = await picker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (result.canceled) return;
+
+    // Resize to 200×200 + compress → ~5-15 KB base64 for RTDB
+    const manipulated = await manip.manipulateAsync(
+      result.assets[0].uri,
+      [{ resize: { width: 200, height: 200 } }],
+      { compress: 0.6, format: manip.SaveFormat.JPEG, base64: true },
+    );
+    if (manipulated.base64) {
+      setPhotoBase64(`data:image/jpeg;base64,${manipulated.base64}`);
+    }
+  }
 
   const babyAge = babyBd ? formatBabyAge(babyBd, language) : '';
   const stage   = babyBd ? computeAgeStage(babyBd) : null;
@@ -95,6 +149,7 @@ export function ProfileModal({ visible, onClose }: Props) {
         babyName: babyName.trim(),
         babyBirthdate: babyBd.trim(),
         language,
+        ...(photoBase64 !== undefined && { photoBase64 }),
       });
       await refreshProfile();
       setSaved(true);
@@ -162,9 +217,18 @@ export function ProfileModal({ visible, onClose }: Props) {
           >
             {/* Avatar */}
             <View style={s.avatarWrap}>
-              <View style={s.avatar}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </View>
+              <Pressable style={s.avatarOuter} onPress={handlePickPhoto}>
+                {photoBase64 ? (
+                  <Image source={{ uri: photoBase64 }} style={s.avatarImg} />
+                ) : (
+                  <View style={s.avatar}>
+                    <Text style={s.avatarText}>{initials}</Text>
+                  </View>
+                )}
+                <View style={s.cameraBadge}>
+                  <Text style={s.cameraIcon}>📷</Text>
+                </View>
+              </Pressable>
               {user?.email && <Text style={s.email}>{user.email}</Text>}
               {babyAge !== '' && stage && (
                 <View style={s.agePill}>
@@ -261,14 +325,24 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
 
   avatarWrap: { alignItems: 'center', gap: 10, paddingTop: 8 },
+  avatarOuter: { position: 'relative', width: 92, height: 92 },
   avatar: {
-    width: 88, height: 88,
-    borderRadius: 44,
+    width: 92, height: 92,
+    borderRadius: 46,
     backgroundColor: '#6ECAC0',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarImg: { width: 92, height: 92, borderRadius: 46 },
   avatarText: { fontSize: 32, fontWeight: '800', color: '#FFFFFF' },
+  cameraBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, borderColor: '#F4F1EE',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cameraIcon: { fontSize: 14 },
   email: { fontSize: 14, color: '#6E6560' },
   agePill: {
     backgroundColor: '#E8F8F6',

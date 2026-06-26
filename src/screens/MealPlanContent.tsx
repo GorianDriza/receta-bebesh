@@ -1,10 +1,11 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
-import { isFirebaseConfigured, missingFirebaseKeys } from '../lib/firebase';
+import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { fetchRecipes, RecipeRecord, RecipeStage } from '../lib/recipes';
 import { computeAgeStage } from '../lib/users';
@@ -157,7 +158,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
             )}
           </View>
           <Pressable style={s.avatarBtn} onPress={onAvatarPress} hitSlop={8}>
-            {user ? (
+            {userProfile?.photoBase64 ? (
+              <Image source={{ uri: userProfile.photoBase64 }} style={s.avatarPhoto} />
+            ) : user ? (
               <Text style={s.avatarInitials}>
                 {(userProfile?.displayName ?? user.displayName ?? '?')
                   .split(' ')
@@ -176,21 +179,55 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
           <View style={s.heroGlowLarge} />
           <View style={s.heroGlowSmall} />
           <View style={s.heroCopy}>
-            <Text style={s.heroEyebrow}>{t[language].home.heroTitle}</Text>
-            <Text style={s.heroBody}>
-              {isFirebaseConfigured ? t[language].home.heroConnected : t[language].home.heroMissing}
-            </Text>
-            {!isFirebaseConfigured ? (
-              <Text style={s.heroMeta}>{t[language].home.heroMissingMeta(missingFirebaseKeys.length)}</Text>
+            {userProfile?.babyName ? (
+              <>
+                <Text style={s.heroEyebrow}>
+                  {language === 'sq-AL' ? `Për ${userProfile.babyName} 👶` : `For ${userProfile.babyName} 👶`}
+                </Text>
+                <Text style={s.heroBody}>
+                  {language === 'sq-AL'
+                    ? 'Recetat janë filtruar sipas moshës së bebës tuaj.'
+                    : "Recipes filtered for your baby's age stage."}
+                </Text>
+                <Pressable style={s.heroBtn} onPress={onAvatarPress}>
+                  <Text style={s.heroBtnLabel}>
+                    {language === 'sq-AL' ? 'Ndrysho profilin' : 'Edit profile'}
+                  </Text>
+                </Pressable>
+              </>
+            ) : user ? (
+              <>
+                <Text style={s.heroEyebrow}>
+                  {language === 'sq-AL' ? 'Personalizo planin 🍽️' : 'Personalize your plan 🍽️'}
+                </Text>
+                <Text style={s.heroBody}>
+                  {language === 'sq-AL'
+                    ? 'Shto emrin dhe datëlindjen e bebës për receta sipas moshës.'
+                    : "Add your baby's name and birthdate for age-matched recipes."}
+                </Text>
+                <Pressable style={s.heroBtn} onPress={onAvatarPress}>
+                  <Text style={s.heroBtnLabel}>
+                    {language === 'sq-AL' ? 'Plotëso profilin' : 'Complete profile'}
+                  </Text>
+                </Pressable>
+              </>
             ) : (
-              <Text style={s.heroMeta}>{t[language].home.heroReadyMeta}</Text>
+              <>
+                <Text style={s.heroEyebrow}>
+                  {language === 'sq-AL' ? 'Receta për bebën tuaj 👶' : 'Recipes for your baby 👶'}
+                </Text>
+                <Text style={s.heroBody}>
+                  {language === 'sq-AL'
+                    ? 'Hyni për të personalizuar recetat sipas moshës së bebës.'
+                    : 'Sign in to get age-matched recipes for your baby.'}
+                </Text>
+                <Pressable style={s.heroBtn} onPress={onLoginRequired}>
+                  <Text style={s.heroBtnLabel}>
+                    {language === 'sq-AL' ? 'Hyni' : 'Sign in'}
+                  </Text>
+                </Pressable>
+              </>
             )}
-            <Pressable
-              style={s.heroBtn}
-              onPress={() => void Linking.openURL('https://console.firebase.google.com/')}
-            >
-              <Text style={s.heroBtnLabel}>{t[language].common.fillInData}</Text>
-            </Pressable>
           </View>
           <View style={s.heroArt}>
             <View style={s.chefBubble}><Text style={s.chefEmoji}>👩‍🍳</Text></View>
@@ -296,59 +333,61 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
             const dur = durationLabel(recipe);
             const isFav = favouriteIds.has(recipe.id);
             return (
-              <Pressable key={recipe.id} onPress={() => setSelected(recipe)}>
-                <Surface style={[s.mealCard, { backgroundColor: p.bg }]} elevation={0}>
-                  <View style={[s.mealSquare, { backgroundColor: p.accent }]} />
-                  <View style={[s.mealPill,   { backgroundColor: `${p.accent}CC` }]} />
+              <Animated.View key={recipe.id} entering={FadeInDown.delay(i * 70).springify().damping(14)}>
+                <Pressable onPress={() => setSelected(recipe)}>
+                  <Surface style={[s.mealCard, { backgroundColor: p.bg }]} elevation={0}>
+                    <View style={[s.mealSquare, { backgroundColor: p.accent }]} />
+                    <View style={[s.mealPill,   { backgroundColor: `${p.accent}CC` }]} />
 
-                  <View style={s.mealActions}>
-                    <Pressable
-                      style={s.actionBubble}
-                      onPress={(e) => { e.stopPropagation(); void toggleFavourite(recipe); }}
-                      hitSlop={8}
-                    >
-                      <IconButton
-                        icon={isFav ? 'heart' : 'heart-outline'}
-                        size={18}
-                        iconColor={isFav ? '#E05252' : '#111'}
-                        style={s.icon0}
-                      />
-                    </Pressable>
-                    <Pressable
-                      style={s.actionBubble}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        if (!user) { onLoginRequired?.(); return; }
-                        setPlannerRecipe(recipe);
-                      }}
-                      hitSlop={8}
-                    >
-                      <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
-                    </Pressable>
-                  </View>
+                    <View style={s.mealActions}>
+                      <Pressable
+                        style={s.actionBubble}
+                        onPress={(e) => { e.stopPropagation(); void toggleFavourite(recipe); }}
+                        hitSlop={8}
+                      >
+                        <IconButton
+                          icon={isFav ? 'heart' : 'heart-outline'}
+                          size={18}
+                          iconColor={isFav ? '#E05252' : '#111'}
+                          style={s.icon0}
+                        />
+                      </Pressable>
+                      <Pressable
+                        style={s.actionBubble}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (!user) { onLoginRequired?.(); return; }
+                          setPlannerRecipe(recipe);
+                        }}
+                        hitSlop={8}
+                      >
+                        <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
+                      </Pressable>
+                    </View>
 
-                  <View style={s.mealInfo}>
-                    <Text style={s.mealTitle}>{recipe.title[language]}</Text>
-                    {dur !== '' && (
-                      <View style={s.durationPill}>
-                        <IconButton icon="clock-time-four-outline" size={16} iconColor="#111" style={s.icon0} />
-                        <Text style={s.durationText}>{dur}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={s.platePos}>
-                    <View style={s.plateShadow} />
-                    <View style={s.plateCircle}>
-                      {imgUrl != null ? (
-                        <Image source={{ uri: imgUrl }} style={s.plateImg} resizeMode="cover" />
-                      ) : (
-                        <Text style={s.plateEmoji}>{emojiForMealType(recipe.mealType)}</Text>
+                    <View style={s.mealInfo}>
+                      <Text style={s.mealTitle}>{recipe.title[language]}</Text>
+                      {dur !== '' && (
+                        <View style={s.durationPill}>
+                          <IconButton icon="clock-time-four-outline" size={16} iconColor="#111" style={s.icon0} />
+                          <Text style={s.durationText}>{dur}</Text>
+                        </View>
                       )}
                     </View>
-                  </View>
-                </Surface>
-              </Pressable>
+
+                    <View style={s.platePos}>
+                      <View style={s.plateShadow} />
+                      <View style={s.plateCircle}>
+                        {imgUrl != null ? (
+                          <Image source={{ uri: imgUrl }} style={s.plateImg} resizeMode="cover" />
+                        ) : (
+                          <Text style={s.plateEmoji}>{emojiForMealType(recipe.mealType)}</Text>
+                        )}
+                      </View>
+                    </View>
+                  </Surface>
+                </Pressable>
+              </Animated.View>
             );
           })}
         </View>
@@ -379,6 +418,7 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   avatarInitials: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  avatarPhoto: { width: 48, height: 48, borderRadius: 24 },
 
   heroCard:      { borderRadius: 30, backgroundColor: '#FFF5A7', padding: 20, flexDirection: 'row', overflow: 'hidden', minHeight: 198 },
   heroGlowLarge: { position: 'absolute', right: -30, top: 10, width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFE679', opacity: 0.55 },
