@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
+import { CookingModeModal } from './CookingModeModal';
 import { ShoppingListModal } from './ShoppingListModal';
 import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from '../lib/recipes';
@@ -15,20 +16,21 @@ const LABELS: Record<AppLanguage, {
   ingredients: string; instructions: string;
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
   addAllToList: string; itemAdded: string; viewList: string;
+  startCooking: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
     min: 'min', noImage: 'Nuk ka imazh',
     addToPlanner: 'Shto në Plan', plannerAdded: 'U shtua!',
     addAllToList: 'Shto të gjitha në listë', itemAdded: '✓ Shtuar',
-    viewList: 'Shiko listën',
+    viewList: 'Shiko listën', startCooking: '👨‍🍳 Fillo gatimin',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
     min: 'min', noImage: 'No image',
     addToPlanner: 'Add to Plan', plannerAdded: 'Added!',
     addAllToList: 'Add all to list', itemAdded: '✓ Added',
-    viewList: 'View list',
+    viewList: 'View list', startCooking: '👨‍🍳 Start Cooking',
   },
 };
 
@@ -42,6 +44,7 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
   const [plannerOpen, setPlannerOpen]   = useState(false);
   const [addedMsg, setAddedMsg]         = useState(false);
   const [shoppingOpen, setShoppingOpen] = useState(false);
+  const [cookingOpen, setCookingOpen]   = useState(false);
   const [addedIngIds, setAddedIngIds]   = useState<Set<number>>(new Set());
   const [allAddedMsg, setAllAddedMsg]   = useState(false);
 
@@ -150,17 +153,22 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
             ))}
 
 
-            {/* Add to Planner */}
-            {user != null && (
-              <>
-                <View style={s.divider} />
-                <Pressable style={s.plannerBtn} onPress={() => setPlannerOpen(true)}>
-                  <Text style={s.plannerBtnLabel}>
+            {/* Action buttons */}
+            <View style={s.divider} />
+            <View style={s.actionRow}>
+              {(recipe?.steps[language] ?? []).length > 0 && (
+                <Pressable style={[s.actionBtn, s.actionBtnCook]} onPress={() => setCookingOpen(true)}>
+                  <Text style={s.actionBtnLabel}>{L.startCooking}</Text>
+                </Pressable>
+              )}
+              {user != null && (
+                <Pressable style={[s.actionBtn, s.actionBtnPlan]} onPress={() => setPlannerOpen(true)}>
+                  <Text style={s.actionBtnLabel}>
                     {addedMsg ? `✓ ${L.plannerAdded}` : `📅 ${L.addToPlanner}`}
                   </Text>
                 </Pressable>
-              </>
-            )}
+              )}
+            </View>
           </Surface>
         </ScrollView>
 
@@ -173,6 +181,10 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
         )}
 
         <ShoppingListModal visible={shoppingOpen} onClose={() => setShoppingOpen(false)} />
+
+        {cookingOpen && recipe != null && (
+          <CookingModeModal recipe={recipe} visible={cookingOpen} onClose={() => setCookingOpen(false)} />
+        )}
       </SafeAreaView>
       </SafeAreaProvider>
     </Modal>
@@ -308,11 +320,11 @@ const s = StyleSheet.create({
 
   // Source
 
-  // Add to Planner button
-  plannerBtn: {
-    backgroundColor: '#6ECAC0', borderRadius: 999,
-    paddingVertical: 16, alignItems: 'center',
-  },
-  plannerBtnLabel: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  // Action buttons row
+  actionRow: { gap: 12 },
+  actionBtn: { borderRadius: 999, paddingVertical: 16, alignItems: 'center' },
+  actionBtnCook: { backgroundColor: '#1C1730' },
+  actionBtnPlan: { backgroundColor: '#6ECAC0' },
+  actionBtnLabel: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
 
 });
