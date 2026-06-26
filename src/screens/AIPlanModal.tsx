@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +10,9 @@ import {
   getDayLabel,
   WeekPlanSuggestion,
 } from '../lib/geminiPlan';
+import { DayKey, getISOWeekKey, setPlannerEntry } from '../lib/planner';
 import { RecipeRecord } from '../lib/recipes';
+import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
 const MEAL_LABELS = {
@@ -31,9 +33,12 @@ type Props = {
 
 export function AIPlanModal({ visible, onClose, recipes, babyAgeMonths }: Props) {
   const { language } = useLanguage();
-  const [plan, setPlan]     = useState<WeekPlanSuggestion | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const { user } = useAuth();
+  const [plan, setPlan]         = useState<WeekPlanSuggestion | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported]   = useState(false);
 
   const recipeMap = new Map(recipes.map((r) => [r.id, r]));
 
@@ -41,6 +46,7 @@ export function AIPlanModal({ visible, onClose, recipes, babyAgeMonths }: Props)
     setLoading(true);
     setError(null);
     setPlan(null);
+    setImported(false);
     try {
       const result = await generateWeeklyPlan(babyAgeMonths, recipes, language);
       setPlan(result);
@@ -55,6 +61,56 @@ export function AIPlanModal({ visible, onClose, recipes, babyAgeMonths }: Props)
     if (!id) return '—';
     const r = recipeMap.get(id);
     return r ? r.title[language] : id;
+  }
+
+  async function handleImport() {
+    if (!plan || !user) return;
+    setImporting(true);
+    const weekKey = getISOWeekKey(new Date());
+    const dayMap: Record<string, DayKey> = {
+      mon: 'mon', tue: 'tue', wed: 'wed', thu: 'thu',
+      fri: 'fri', sat: 'sat', sun: 'sun',
+    };
+    try {
+      for (const [rawDay, dayPlan] of Object.entries(plan)) {
+        const dayKey = dayMap[rawDay] as DayKey | undefined;
+        if (!dayKey) continue;
+        for (const [meal, recipeId] of Object.entries(dayPlan as DayPlanSuggestion)) {
+          if (!recipeId) continue;
+          const recipe = recipeMap.get(recipeId);
+          if (!recipe) continue;
+          await setPlannerEntry(user.uid, weekKey, dayKey, meal as never, {
+            recipeId: recipe.id,
+            recipeTitle: recipe.title[language],
+            recipeImage: recipe.image?.sourceUrl ?? recipe.image?.downloadUrl ?? null,
+            addedAt: new Date().toISOString(),
+          });
+        }
+      }
+      setImported(true);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleShare() {
+    if (!plan) return;
+    const lines: string[] = [
+      language === 'sq-AL' ? '✨ Plani i Javës (AI)' : '✨ AI Weekly Plan',
+      '',
+    ];
+    for (const day of DAYS_ORDER) {
+      const dayPlan: DayPlanSuggestion = plan[day] ?? {};
+      lines.push(getDayLabel(day, language));
+      for (const meal of MEAL_ORDER) {
+        const rid = dayPlan[meal];
+        if (rid) lines.push(`  ${MEAL_LABELS[meal][language]}: ${recipeTitle(rid)}`);
+      }
+      lines.push('');
+    }
+    try {
+      await Share.share({ message: lines.join('\n').trim() });
+    } catch {}
   }
 
   return (
@@ -99,27 +155,53 @@ export function AIPlanModal({ visible, onClose, recipes, babyAgeMonths }: Props)
             )}
 
             {plan != null && (
-              <View style={s.weekGrid}>
-                {DAYS_ORDER.map((day) => {
-                  const dayPlan: DayPlanSuggestion = plan[day] ?? {};
-                  return (
-                    <Surface key={day} style={s.dayCard} elevation={0}>
-                      <Text style={s.dayName}>{getDayLabel(day, language)}</Text>
-                      {MEAL_ORDER.map((meal) => {
-                        const rid = dayPlan[meal];
-                        return (
-                          <View key={meal} style={s.mealRow}>
-                            <Text style={s.mealLabel}>{MEAL_LABELS[meal][language]}</Text>
-                            <Text style={s.mealTitle} numberOfLines={2}>
-                              {recipeTitle(rid)}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                    </Surface>
-                  );
-                })}
-              </View>
+              <>
+                <View style={s.weekGrid}>
+                  {DAYS_ORDER.map((day) => {
+                    const dayPlan: DayPlanSuggestion = plan[day] ?? {};
+                    return (
+                      <Surface key={day} style={s.dayCard} elevation={0}>
+                        <Text style={s.dayName}>{getDayLabel(day, language)}</Text>
+                        {MEAL_ORDER.map((meal) => {
+                          const rid = dayPlan[meal];
+                          return (
+                            <View key={meal} style={s.mealRow}>
+                              <Text style={s.mealLabel}>{MEAL_LABELS[meal][language]}</Text>
+                              <Text style={s.mealTitle} numberOfLines={2}>
+                                {recipeTitle(rid)}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </Surface>
+                    );
+                  })}
+                </View>
+
+                {/* Action buttons */}
+                <View style={s.planActions}>
+                  {user && (
+                    <Pressable
+                      style={[s.importBtn, (importing || imported) && s.importBtnDone]}
+                      onPress={handleImport}
+                      disabled={importing || imported}
+                    >
+                      <Text style={s.importBtnLabel}>
+                        {imported
+                          ? (language === 'sq-AL' ? '✓ Importuar!' : '✓ Imported!')
+                          : importing
+                          ? (language === 'sq-AL' ? 'Duke importuar...' : 'Importing...')
+                          : (language === 'sq-AL' ? '📅 Shto në planifikues' : '📅 Add to planner')}
+                      </Text>
+                    </Pressable>
+                  )}
+                  <Pressable style={s.shareBtn} onPress={handleShare}>
+                    <Text style={s.shareBtnLabel}>
+                      {language === 'sq-AL' ? '↑ Ndaj planin' : '↑ Share plan'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
             )}
 
           </ScrollView>
@@ -153,4 +235,11 @@ const s = StyleSheet.create({
   mealRow: { gap: 2 },
   mealLabel: { fontSize: 12, fontWeight: '700', color: '#8870CC' },
   mealTitle: { fontSize: 14, color: '#1A1714', lineHeight: 19 },
+
+  planActions: { gap: 10 },
+  importBtn: { backgroundColor: '#6A42D8', borderRadius: 999, paddingVertical: 16, alignItems: 'center' },
+  importBtnDone: { backgroundColor: '#6ECAC0' },
+  importBtnLabel: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  shareBtn: { backgroundColor: '#EDE8FF', borderRadius: 999, paddingVertical: 14, alignItems: 'center' },
+  shareBtnLabel: { fontSize: 15, fontWeight: '700', color: '#6A42D8' },
 });
