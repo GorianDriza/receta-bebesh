@@ -26,6 +26,8 @@ import { getFavouriteIds } from '../lib/favourites';
 import { getUncheckedCount } from '../lib/shoppingList';
 import { FoodTrackerModal } from './FoodTrackerModal';
 import { GrowthTrackerModal } from './GrowthTrackerModal';
+import { BabyProfileSwitcher } from './BabyProfileSwitcher';
+import { BabyProfile, getActiveProfile } from '../lib/babyProfiles';
 
 const L = {
   'sq-AL': {
@@ -47,6 +49,7 @@ const L = {
     growthTracker: 'Gjatësia & Pesha',
     remindersOn: '🔔 Kujtuesit e vakteve: Aktiv',
     remindersOff: '🔕 Kujtuesit e vakteve: Joaktiv',
+    babyProfiles: 'Profile Bebesh',
   },
   en: {
     title: 'Profile',
@@ -67,6 +70,7 @@ const L = {
     growthTracker: 'Growth Tracker',
     remindersOn: '🔔 Meal reminders: On',
     remindersOff: '🔕 Meal reminders: Off',
+    babyProfiles: 'Baby Profiles',
   },
 } as const;
 
@@ -124,6 +128,8 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [saved, setSaved]           = useState(false);
   const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
   const [growthTrackerOpen, setGrowthTrackerOpen] = useState(false);
+  const [profileSwitcherOpen, setProfileSwitcherOpen] = useState(false);
+  const [activeProfile, setActiveProfile] = useState<BabyProfile | null>(null);
   const [remindersEnabled, setRemindersEnabledState] = useState(true);
   const [streak, setStreak]     = useState(0);
   const [favCount, setFavCount] = useState(0);
@@ -131,6 +137,7 @@ export function ProfileModal({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (!visible) return;
+    getActiveProfile().then(setActiveProfile).catch(() => {});
     getRemindersEnabled().then(setRemindersEnabledState).catch(() => {});
     getCookStreak().then(setStreak).catch(() => {});
     getUncheckedCount().then(setCartCount).catch(() => {});
@@ -374,6 +381,18 @@ export function ProfileModal({ visible, onClose }: Props) {
               <Text style={s.foodTrackerArrow}>›</Text>
             </Pressable>
 
+            {/* Baby Profile Switcher */}
+            <Pressable style={[s.foodTrackerBtn, s.profilesBtn]} onPress={() => setProfileSwitcherOpen(true)}>
+              <Text style={s.foodTrackerIcon}>👶</Text>
+              <View style={s.profilesBtnInner}>
+                <Text style={[s.foodTrackerLabel, s.profilesLabel]}>{L[language].babyProfiles}</Text>
+                {activeProfile && (
+                  <Text style={s.profilesActive}>{activeProfile.emoji ?? '👶'} {activeProfile.name}</Text>
+                )}
+              </View>
+              <Text style={s.foodTrackerArrow}>›</Text>
+            </Pressable>
+
             {/* Notification toggle */}
             <Pressable
               style={[s.foodTrackerBtn, s.notifBtn, !remindersEnabled && s.notifBtnOff]}
@@ -401,6 +420,11 @@ export function ProfileModal({ visible, onClose }: Props) {
       </SafeAreaProvider>
       <FoodTrackerModal visible={foodTrackerOpen} onClose={() => setFoodTrackerOpen(false)} />
       <GrowthTrackerModal visible={growthTrackerOpen} onClose={() => setGrowthTrackerOpen(false)} />
+      <BabyProfileSwitcher
+        visible={profileSwitcherOpen}
+        onClose={() => setProfileSwitcherOpen(false)}
+        onSwitch={(p) => { setActiveProfile(p); setProfileSwitcherOpen(false); }}
+      />
     </Modal>
   );
 }
@@ -502,6 +526,11 @@ const s = StyleSheet.create({
 
   growthBtn: { backgroundColor: '#F0EBFF' },
   growthLabel: { color: '#5A3FA0' },
+
+  profilesBtn: { backgroundColor: '#FFF5E8' },
+  profilesBtnInner: { flex: 1, gap: 2 },
+  profilesLabel: { color: '#A05A00' },
+  profilesActive: { fontSize: 12, color: '#A05A00', opacity: 0.75, fontWeight: '600' },
 
   notifBtn:    { backgroundColor: '#F0F8FF' },
   notifBtnOff: { backgroundColor: '#F8F8F8' },
