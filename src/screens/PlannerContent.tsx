@@ -30,6 +30,7 @@ import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { addShoppingItem } from '../lib/shoppingList';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
+import { CookingModeModal } from './CookingModeModal';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
 const DAYS: Array<{ key: DayKey; sq: string; en: string }> = [
@@ -126,6 +127,7 @@ export function PlannerContent({ onLoginRequired }: Props) {
 
   const [addedToList, setAddedToList] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeRecord | null>(null);
+  const [cookingRecipe, setCookingRecipe] = useState<RecipeRecord | null>(null);
   const recipeMap = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
 
   async function addWeekToShoppingList() {
@@ -240,31 +242,44 @@ export function PlannerContent({ onLoginRequired }: Props) {
                     <Text style={s.slotLabel}>{language === 'sq-AL' ? m.sq : m.en}</Text>
                   </View>
                   {entry ? (
-                    <Pressable
-                      style={s.slotFilled}
-                      onPress={() => {
-                        const r = recipeMap.get(entry.recipeId);
-                        if (r) setSelectedRecipe(r);
-                      }}
-                    >
-                      {entry.recipeImage ? (
-                        <Image
-                          source={{ uri: entry.recipeImage }}
-                          style={s.slotThumb}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={[s.slotThumb, s.slotThumbEmpty]}>
-                          <Text style={s.slotThumbEmoji}>{m.emoji}</Text>
-                        </View>
-                      )}
-                      <Text style={s.slotRecipeTitle} numberOfLines={2}>
-                        {entry.recipeTitle}
-                      </Text>
-                      <Pressable onPress={(e) => { e.stopPropagation(); removeEntry(m.key); }} hitSlop={10} style={s.removeBtn}>
-                        <IconButton icon="close-circle" size={20} iconColor="#E05252" style={s.icon0} />
+                    <View>
+                      <Pressable
+                        style={s.slotFilled}
+                        onPress={() => {
+                          const r = recipeMap.get(entry.recipeId);
+                          if (r) setSelectedRecipe(r);
+                        }}
+                      >
+                        {entry.recipeImage ? (
+                          <Image
+                            source={{ uri: entry.recipeImage }}
+                            style={s.slotThumb}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[s.slotThumb, s.slotThumbEmpty]}>
+                            <Text style={s.slotThumbEmoji}>{m.emoji}</Text>
+                          </View>
+                        )}
+                        <Text style={s.slotRecipeTitle} numberOfLines={2}>
+                          {entry.recipeTitle}
+                        </Text>
+                        <Pressable onPress={(e) => { e.stopPropagation(); removeEntry(m.key); }} hitSlop={10} style={s.removeBtn}>
+                          <IconButton icon="close-circle" size={20} iconColor="#E05252" style={s.icon0} />
+                        </Pressable>
                       </Pressable>
-                    </Pressable>
+                      <Pressable
+                        style={s.cookBtn}
+                        onPress={() => {
+                          const r = recipeMap.get(entry.recipeId);
+                          if (r) setCookingRecipe(r);
+                        }}
+                      >
+                        <Text style={s.cookBtnText}>
+                          {language === 'sq-AL' ? '🍳 Gatiho tani' : '🍳 Cook now'}
+                        </Text>
+                      </Pressable>
+                    </View>
                   ) : (
                     <Pressable
                       style={s.slotEmpty}
@@ -355,6 +370,9 @@ export function PlannerContent({ onLoginRequired }: Props) {
       </Modal>
 
       <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+      {cookingRecipe != null && (
+        <CookingModeModal recipe={cookingRecipe} visible={true} onClose={() => setCookingRecipe(null)} />
+      )}
     </>
   );
 }
@@ -416,6 +434,13 @@ const s = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 4,
   },
   slotEmptyText: { fontSize: 15, color: '#6ECAC0', fontWeight: '600' },
+
+  cookBtn: {
+    marginTop: 8, borderRadius: 999, backgroundColor: '#E8FAF8',
+    paddingVertical: 10, alignItems: 'center',
+    borderWidth: 1, borderColor: '#98E8AA',
+  },
+  cookBtnText: { fontSize: 14, fontWeight: '700', color: '#2A6B66' },
 
   icon0: { margin: 0 },
 
