@@ -20,6 +20,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
+import { getRemindersEnabled, setRemindersEnabled } from '../lib/notificationPrefs';
 import { FoodTrackerModal } from './FoodTrackerModal';
 import { GrowthTrackerModal } from './GrowthTrackerModal';
 
@@ -41,6 +42,8 @@ const L = {
     email: 'Email',
     foodTracker: 'Ushqimet e Provuara',
     growthTracker: 'Gjatësia & Pesha',
+    remindersOn: '🔔 Kujtuesit e vakteve: Aktiv',
+    remindersOff: '🔕 Kujtuesit e vakteve: Joaktiv',
   },
   en: {
     title: 'Profile',
@@ -59,6 +62,8 @@ const L = {
     email: 'Email',
     foodTracker: 'Foods Introduced',
     growthTracker: 'Growth Tracker',
+    remindersOn: '🔔 Meal reminders: On',
+    remindersOff: '🔕 Meal reminders: Off',
   },
 } as const;
 
@@ -116,6 +121,11 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [saved, setSaved]           = useState(false);
   const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
   const [growthTrackerOpen, setGrowthTrackerOpen] = useState(false);
+  const [remindersEnabled, setRemindersEnabledState] = useState(true);
+
+  useEffect(() => {
+    if (visible) getRemindersEnabled().then(setRemindersEnabledState).catch(() => {});
+  }, [visible]);
 
   // Sync fields each time modal opens or profile loads from cache/Firebase
   useEffect(() => {
@@ -334,6 +344,23 @@ export function ProfileModal({ visible, onClose }: Props) {
               <Text style={s.foodTrackerArrow}>›</Text>
             </Pressable>
 
+            {/* Notification toggle */}
+            <Pressable
+              style={[s.foodTrackerBtn, s.notifBtn, !remindersEnabled && s.notifBtnOff]}
+              onPress={async () => {
+                const next = !remindersEnabled;
+                setRemindersEnabledState(next);
+                await setRemindersEnabled(next, userProfile?.babyName ?? undefined);
+              }}
+            >
+              <Text style={s.notifLabel}>
+                {remindersEnabled ? L[language].remindersOn : L[language].remindersOff}
+              </Text>
+              <View style={[s.notifToggle, remindersEnabled && s.notifToggleOn]}>
+                <View style={[s.notifToggleThumb, remindersEnabled && s.notifToggleThumbOn]} />
+              </View>
+            </Pressable>
+
             {/* Logout */}
             <Pressable style={s.logoutBtn} onPress={handleLogout}>
               <Text style={s.logoutLabel}>{l.logoutBtn}</Text>
@@ -439,6 +466,17 @@ const s = StyleSheet.create({
 
   growthBtn: { backgroundColor: '#F0EBFF' },
   growthLabel: { color: '#5A3FA0' },
+
+  notifBtn:    { backgroundColor: '#F0F8FF' },
+  notifBtnOff: { backgroundColor: '#F8F8F8' },
+  notifLabel:  { flex: 1, fontSize: 15, fontWeight: '700', color: '#2A4B6B' },
+  notifToggle: {
+    width: 46, height: 26, borderRadius: 13, backgroundColor: '#D0D0D0',
+    justifyContent: 'center', padding: 2,
+  },
+  notifToggleOn: { backgroundColor: '#6ECAC0' },
+  notifToggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', alignSelf: 'flex-start' },
+  notifToggleThumbOn: { alignSelf: 'flex-end' },
 
   logoutBtn: {
     backgroundColor: '#FFFFFF',
