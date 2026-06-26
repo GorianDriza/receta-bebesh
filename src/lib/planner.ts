@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, ref, remove, set } from 'firebase/database';
 import { firebaseDatabase } from './firebase';
 
@@ -13,6 +14,25 @@ export type PlannerEntry = {
 
 export type DayPlan = Partial<Record<PlannerMealType, PlannerEntry>>;
 export type WeekPlan = Partial<Record<DayKey, DayPlan>>;
+
+function cacheKey(uid: string, weekKey: string): string {
+  return `@planner_cache_${uid}_${weekKey}`;
+}
+
+async function savePlanCache(uid: string, weekKey: string, plan: WeekPlan): Promise<void> {
+  try {
+    await AsyncStorage.setItem(cacheKey(uid, weekKey), JSON.stringify(plan));
+  } catch {}
+}
+
+async function loadPlanCache(uid: string, weekKey: string): Promise<WeekPlan | null> {
+  try {
+    const json = await AsyncStorage.getItem(cacheKey(uid, weekKey));
+    return json ? (JSON.parse(json) as WeekPlan) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function getISOWeekKey(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -47,9 +67,17 @@ export function todayDayKey(): DayKey {
 }
 
 export async function getWeekPlan(uid: string, weekKey: string): Promise<WeekPlan> {
-  if (!firebaseDatabase) return {};
-  const snap = await get(ref(firebaseDatabase, `users/${uid}/planner/${weekKey}`));
-  return snap.exists() ? (snap.val() as WeekPlan) : {};
+  if (!firebaseDatabase) {
+    return (await loadPlanCache(uid, weekKey)) ?? {};
+  }
+  try {
+    const snap = await get(ref(firebaseDatabase, `users/${uid}/planner/${weekKey}`));
+    const plan = snap.exists() ? (snap.val() as WeekPlan) : {};
+    await savePlanCache(uid, weekKey, plan);
+    return plan;
+  } catch {
+    return (await loadPlanCache(uid, weekKey)) ?? {};
+  }
 }
 
 export async function setPlannerEntry(
@@ -61,6 +89,9 @@ export async function setPlannerEntry(
 ): Promise<void> {
   if (!firebaseDatabase) return;
   await set(ref(firebaseDatabase, `users/${uid}/planner/${weekKey}/${day}/${meal}`), entry);
+  const cached = (await loadPlanCache(uid, weekKey)) ?? {};
+  const updatedDay = { ...(cached[day] ?? {}), [meal]: entry };
+  await savePlanCache(uid, weekKey, { ...cached, [day]: updatedDay });
 }
 
 export async function removePlannerEntry(
@@ -71,4 +102,8 @@ export async function removePlannerEntry(
 ): Promise<void> {
   if (!firebaseDatabase) return;
   await remove(ref(firebaseDatabase, `users/${uid}/planner/${weekKey}/${day}/${meal}`));
+  const cached = (await loadPlanCache(uid, weekKey)) ?? {};
+  const updatedDay = { ...(cached[day] ?? {}) };
+  delete updatedDay[meal];
+  await savePlanCache(uid, weekKey, { ...cached, [day]: updatedDay });
 }
