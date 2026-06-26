@@ -45,6 +45,7 @@ function durationLabel(r: RecipeRecord): string {
 type FilterId = RecipeStage | 'all' | 'fav' | 'rated';
 type MealFilter = RecipeRecord['mealType'] | 'any';
 type TimeFilter = 'any' | 'quick' | 'medium';
+type SortMode = 'default' | 'az' | 'fastest' | 'rated';
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
 
@@ -76,6 +77,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [ageFilter, setAgeFilter]   = useState<FilterId>(defaultFilter);
   const [mealFilter, setMealFilter] = useState<MealFilter>('any');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('any');
+  const [sortMode, setSortMode]     = useState<SortMode>('default');
   const [showAll, setShowAll]       = useState(false);
 
   // Re-apply default when profile loads
@@ -172,8 +174,17 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         return !reactionTerms.some((term) => allText.includes(term));
       });
     }
+    if (sortMode === 'az') {
+      filtered = [...filtered].sort((a, b) => a.title[language].localeCompare(b.title[language]));
+    } else if (sortMode === 'fastest') {
+      filtered = [...filtered].sort((a, b) =>
+        (a.totalMinutes ?? a.prepMinutes ?? 999) - (b.totalMinutes ?? b.prepMinutes ?? 999),
+      );
+    } else if (sortMode === 'rated') {
+      filtered = [...filtered].sort((a, b) => (ratingsMap[b.id] ?? 0) - (ratingsMap[a.id] ?? 0));
+    }
     return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, mealFilter, timeFilter, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
+  }, [recipes, ageFilter, mealFilter, timeFilter, sortMode, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -386,6 +397,15 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                 <Text style={s.aiBtnLabel}>✨ AI</Text>
               </Pressable>
             )}
+            <Pressable
+              style={s.sortBtn}
+              onPress={() => setSortMode((m): SortMode => m === 'default' ? 'az' : m === 'az' ? 'fastest' : m === 'fastest' ? 'rated' : 'default')}
+              hitSlop={8}
+            >
+              <Text style={s.sortBtnLabel}>
+                {sortMode === 'default' ? '↕' : sortMode === 'az' ? 'A-Z' : sortMode === 'fastest' ? '⚡' : '⭐'}
+              </Text>
+            </Pressable>
             <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
               <Text style={s.seeAll}>
                 {showAll
@@ -670,6 +690,8 @@ const s = StyleSheet.create({
   sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   aiBtn: { borderRadius: 999, backgroundColor: '#EDE8FF', paddingHorizontal: 14, paddingVertical: 8 },
   aiBtnLabel: { fontSize: 14, fontWeight: '800', color: '#6A42D8' },
+  sortBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFFFFFD9', alignItems: 'center', justifyContent: 'center' },
+  sortBtnLabel: { fontSize: 14, fontWeight: '800', color: '#3D3530' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
   cacheHint:     { fontSize: 12, color: '#B0A9A3', marginTop: 2 },
