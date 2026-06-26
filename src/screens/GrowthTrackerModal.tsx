@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
@@ -106,6 +106,22 @@ export function GrowthTrackerModal({ visible, onClose }: Props) {
   const weightValues = entries.filter((e) => e.weightKg != null).map((e) => e.weightKg!);
   const heightValues = entries.filter((e) => e.heightCm != null).map((e) => e.heightCm!);
 
+  async function handleShare() {
+    if (entries.length === 0) return;
+    const header = language === 'sq-AL' ? '📊 Rritja e Bebës' : '📊 Baby Growth Log';
+    const lines = [header, ''];
+    for (const e of [...entries].reverse()) {
+      const parts: string[] = [e.date];
+      if (e.weightKg != null) parts.push(`⚖ ${e.weightKg} kg`);
+      if (e.heightCm != null) parts.push(`📏 ${e.heightCm} cm`);
+      if (e.note) parts.push(`(${e.note})`);
+      lines.push(parts.join('  '));
+    }
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch {}
+  }
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaProvider>
@@ -115,7 +131,13 @@ export function GrowthTrackerModal({ visible, onClose }: Props) {
             <Text style={s.closeX}>✕</Text>
           </Pressable>
           <Text style={s.title}>{ll.title}</Text>
-          <View style={{ width: 36 }} />
+          {entries.length > 0 ? (
+            <Pressable style={s.closeBtn} onPress={handleShare} hitSlop={8}>
+              <Text style={s.closeX}>↑</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
