@@ -408,9 +408,10 @@ export function LearningContent() {
   const visible = useMemo(() => {
     let cards = selectedTopic === 'all' ? CARDS : CARDS.filter((c) => c.topic === selectedTopic);
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const q = norm(searchQuery);
       cards = cards.filter(
-        (c) => c.title[language].toLowerCase().includes(q) || c.excerpt[language].toLowerCase().includes(q),
+        (c) => norm(c.title[language]).includes(q) || norm(c.excerpt[language]).includes(q),
       );
     }
     return cards;

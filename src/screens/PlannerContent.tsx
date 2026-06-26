@@ -150,8 +150,10 @@ export function PlannerContent({ onLoginRequired }: Props) {
   }
 
   const filteredRecipes = useMemo(() => {
-    const q = pickerSearch.toLowerCase();
-    return q ? recipes.filter((r) => r.title[language].toLowerCase().includes(q)) : recipes;
+    if (!pickerSearch.trim()) return recipes;
+    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const q = norm(pickerSearch);
+    return recipes.filter((r) => norm(r.title[language]).includes(q));
   }, [recipes, pickerSearch, language]);
 
   return (
