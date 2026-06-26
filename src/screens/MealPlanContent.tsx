@@ -236,6 +236,18 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     return (new Date().getFullYear() - birth.getFullYear()) * 12 + (new Date().getMonth() - birth.getMonth());
   })();
 
+  const recipeOfDay = useMemo(() => {
+    if (recipes.length === 0) return null;
+    const stage = userProfile?.babyBirthdate ? computeAgeStage(userProfile.babyBirthdate) : null;
+    const ageAppropriate = stage
+      ? recipes.filter((r) => r.ageStage === stage)
+      : recipes;
+    const pool = ageAppropriate.length > 0 ? ageAppropriate : recipes;
+    const today = new Date();
+    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+    return pool[dayOfYear % pool.length] ?? null;
+  }, [recipes, userProfile?.babyBirthdate]);
+
   const FILTERS: Array<{ id: FilterId; label: string }> = [
     { id: 'all',   label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
     { id: '4-6m',  label: '4-6m' },
@@ -378,6 +390,41 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
             </View>
           </View>
         </Surface>
+
+        {/* ── Recipe of the Day ── */}
+        {recipeOfDay && (
+          <Pressable onPress={() => setSelected(recipeOfDay)}>
+            <Surface style={s.rotdCard} elevation={0}>
+              <View style={s.rotdBadge}>
+                <Text style={s.rotdBadgeText}>
+                  {language === 'sq-AL' ? '🌟 Receta e Ditës' : '🌟 Recipe of the Day'}
+                </Text>
+              </View>
+              <View style={s.rotdContent}>
+                {(recipeOfDay.image?.downloadUrl ?? recipeOfDay.image?.sourceUrl) ? (
+                  <Image
+                    source={{ uri: recipeOfDay.image.downloadUrl ?? recipeOfDay.image.sourceUrl ?? '' }}
+                    style={s.rotdImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={s.rotdImagePlaceholder}>
+                    <Text style={s.rotdEmoji}>{emojiForMealType(recipeOfDay.mealType)}</Text>
+                  </View>
+                )}
+                <View style={s.rotdMeta}>
+                  <Text style={s.rotdTitle} numberOfLines={2}>{recipeOfDay.title[language]}</Text>
+                  <View style={s.rotdPills}>
+                    <View style={s.rotdPill}><Text style={s.rotdPillText}>{recipeOfDay.ageStage}</Text></View>
+                    {(recipeOfDay.totalMinutes ?? recipeOfDay.prepMinutes) != null && (
+                      <View style={s.rotdPill}><Text style={s.rotdPillText}>⏱ {recipeOfDay.totalMinutes ?? recipeOfDay.prepMinutes} min</Text></View>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </Surface>
+          </Pressable>
+        )}
 
         {/* ── Milestone banner ── */}
         {userProfile?.babyBirthdate != null && (
@@ -800,6 +847,32 @@ const s = StyleSheet.create({
   ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
   diffText: { fontSize: 11, fontWeight: '700', alignSelf: 'center' },
+
+  rotdCard: {
+    borderRadius: 28, backgroundColor: '#FFFDF0',
+    padding: 14, gap: 10,
+    borderWidth: 1.5, borderColor: '#FFE47A',
+  },
+  rotdBadge: {
+    alignSelf: 'flex-start', backgroundColor: '#FFD600',
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4,
+  },
+  rotdBadgeText: { fontSize: 12, fontWeight: '800', color: '#1A1714' },
+  rotdContent: { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  rotdImage: { width: 72, height: 72, borderRadius: 18 },
+  rotdImagePlaceholder: {
+    width: 72, height: 72, borderRadius: 18,
+    backgroundColor: '#FFF4C2', alignItems: 'center', justifyContent: 'center',
+  },
+  rotdEmoji: { fontSize: 34 },
+  rotdMeta: { flex: 1, gap: 8 },
+  rotdTitle: { fontSize: 17, fontWeight: '800', color: '#1A1714', lineHeight: 22 },
+  rotdPills: { flexDirection: 'row', gap: 6 },
+  rotdPill: {
+    backgroundColor: '#FFF0A0', borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  rotdPillText: { fontSize: 11, fontWeight: '700', color: '#7A6200' },
 
   recentSection: { gap: 10 },
   recentHeading: { fontSize: 18, fontWeight: '800', letterSpacing: -0.4, color: '#111111' },
