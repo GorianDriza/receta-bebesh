@@ -130,12 +130,7 @@ export function ProfileModal({ visible, onClose }: Props) {
     const photoManipulator = photoModules.manipulator;
     const permission = await photoPicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== 'granted') {
-      Alert.alert(
-        language === 'sq-AL' ? 'Leje e nevojshme' : 'Permission required',
-        language === 'sq-AL'
-          ? 'Aplikacioni ka nevojÃ« pÃ«r qasje nÃ« fotografi.'
-          : 'The app needs access to your photos.',
-      );
+      Alert.alert(l.photoPermissionTitle, l.photoPermissionBody);
       return;
     }
 
@@ -154,55 +149,6 @@ export function ProfileModal({ visible, onClose }: Props) {
     );
     if (resizedImage.base64) {
       setPhotoBase64(`data:image/jpeg;base64,${resizedImage.base64}`);
-    }
-    return;
-    // Both modules require a native dev build — not available in Expo Go.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let picker: any = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let manip: any = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      picker = require('expo-image-picker');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      manip = require('expo-image-manipulator');
-    } catch {
-      Alert.alert(
-        language === 'sq-AL' ? 'Kërkon dev build' : 'Dev build required',
-        language === 'sq-AL'
-          ? 'Ngarkimi i fotove kërkon EAS development build. Ekzekutoni: eas build --profile development'
-          : 'Photo upload requires an EAS development build. Run: eas build --profile development',
-      );
-      return;
-    }
-
-    const { status } = await picker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        language === 'sq-AL' ? 'Leje e nevojshme' : 'Permission required',
-        language === 'sq-AL'
-          ? 'Aplikacioni ka nevojë për qasje në fotografi.'
-          : 'The app needs access to your photos.',
-      );
-      return;
-    }
-
-    const result = await picker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-    if (result.canceled) return;
-
-    // Resize to 200×200 + compress → ~5-15 KB base64 for RTDB
-    const manipulated = await manip.manipulateAsync(
-      result.assets[0].uri,
-      [{ resize: { width: 200, height: 200 } }],
-      { compress: 0.6, format: manip.SaveFormat.JPEG, base64: true },
-    );
-    if (manipulated.base64) {
-      setPhotoBase64(`data:image/jpeg;base64,${manipulated.base64}`);
     }
   }
 
