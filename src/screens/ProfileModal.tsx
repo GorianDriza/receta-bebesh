@@ -21,6 +21,9 @@ import { useLanguage } from '../providers/LanguageProvider';
 import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
 import { getRemindersEnabled, setRemindersEnabled } from '../lib/notificationPrefs';
+import { getCookStreak } from '../lib/cookHistory';
+import { getFavouriteIds } from '../lib/favourites';
+import { getUncheckedCount } from '../lib/shoppingList';
 import { FoodTrackerModal } from './FoodTrackerModal';
 import { GrowthTrackerModal } from './GrowthTrackerModal';
 
@@ -122,10 +125,17 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
   const [growthTrackerOpen, setGrowthTrackerOpen] = useState(false);
   const [remindersEnabled, setRemindersEnabledState] = useState(true);
+  const [streak, setStreak]     = useState(0);
+  const [favCount, setFavCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
-    if (visible) getRemindersEnabled().then(setRemindersEnabledState).catch(() => {});
-  }, [visible]);
+    if (!visible) return;
+    getRemindersEnabled().then(setRemindersEnabledState).catch(() => {});
+    getCookStreak().then(setStreak).catch(() => {});
+    getUncheckedCount().then(setCartCount).catch(() => {});
+    if (user) getFavouriteIds(user.uid).then((ids) => setFavCount(ids.size)).catch(() => {});
+  }, [visible, user]);
 
   // Sync fields each time modal opens or profile loads from cache/Firebase
   useEffect(() => {
@@ -277,6 +287,26 @@ export function ProfileModal({ visible, onClose }: Props) {
               )}
             </View>
 
+            {/* Stats row */}
+            {user && (
+              <View style={s.statsRow}>
+                <View style={s.statCell}>
+                  <Text style={s.statValue}>{streak}</Text>
+                  <Text style={s.statLabel}>{language === 'sq-AL' ? '🔥 Radhazi' : '🔥 Streak'}</Text>
+                </View>
+                <View style={s.statDivider} />
+                <View style={s.statCell}>
+                  <Text style={s.statValue}>{favCount}</Text>
+                  <Text style={s.statLabel}>{language === 'sq-AL' ? '♡ Ruajtur' : '♡ Saved'}</Text>
+                </View>
+                <View style={s.statDivider} />
+                <View style={s.statCell}>
+                  <Text style={s.statValue}>{cartCount}</Text>
+                  <Text style={s.statLabel}>{language === 'sq-AL' ? '🛒 Listë' : '🛒 List'}</Text>
+                </View>
+              </View>
+            )}
+
             {/* Edit card */}
             <View style={s.card}>
               <View style={s.fields}>
@@ -424,6 +454,12 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   agePillText: { fontSize: 15, fontWeight: '700', color: '#3D9C72' },
+
+  statsRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 16, alignItems: 'center' },
+  statCell: { flex: 1, alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 28, fontWeight: '800', color: '#111111' },
+  statLabel: { fontSize: 12, fontWeight: '700', color: '#7A6A5A' },
+  statDivider: { width: 1, height: 40, backgroundColor: '#F0EDE8' },
 
   card: {
     backgroundColor: '#FFFFFF',
