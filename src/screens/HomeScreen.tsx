@@ -6,6 +6,7 @@ import { IconButton, Surface, Text } from 'react-native-paper';
 import { useAuth } from '../providers/AuthProvider';
 import { LoginScreen } from './auth/LoginScreen';
 import { SignUpScreen } from './auth/SignUpScreen';
+import { isOnboardingDone, OnboardingScreen } from './OnboardingScreen';
 import { JournalContent } from './JournalContent';
 import { LearningContent } from './LearningContent';
 import { MealPlanContent } from './MealPlanContent';
@@ -31,6 +32,11 @@ export function HomeScreen() {
   const [showProfile,  setShowProfile]  = useState(false);
   const [authView,     setAuthView]     = useState<AuthView>(null);
   const [showShopping, setShowShopping] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    isOnboardingDone().then((done) => { if (!done) setShowOnboarding(true); }).catch(() => {});
+  }, []);
 
   // Auto-close auth overlay once login/signup succeeds
   useEffect(() => {
@@ -40,6 +46,11 @@ export function HomeScreen() {
   function handleAvatarPress() {
     if (user) setShowProfile(true);
     else setAuthView('login');
+  }
+
+  // Onboarding first-launch overlay
+  if (showOnboarding) {
+    return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
   }
 
   // Auth screens overlay the entire app
