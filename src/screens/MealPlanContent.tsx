@@ -54,6 +54,7 @@ function difficultyLabel(r: RecipeRecord): { label: string; color: string } | nu
 type FilterId = RecipeStage | 'all' | 'fav' | 'rated';
 type MealFilter = RecipeRecord['mealType'] | 'any';
 type TimeFilter = 'any' | 'quick' | 'medium';
+type DiffFilter = 'any' | 'easy' | 'med' | 'hard';
 type SortMode = 'default' | 'az' | 'fastest' | 'rated';
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
@@ -87,6 +88,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [ageFilter, setAgeFilter]   = useState<FilterId>(defaultFilter);
   const [mealFilter, setMealFilter] = useState<MealFilter>('any');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('any');
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>('any');
   const [sortMode, setSortMode]     = useState<SortMode>('default');
   const [showAll, setShowAll]       = useState(false);
 
@@ -180,6 +182,15 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       const q = normalize(searchQuery);
       filtered = filtered.filter((r) => normalize(r.title[language]).includes(q));
     }
+    if (diffFilter !== 'any') {
+      filtered = filtered.filter((r) => {
+        const steps = r.steps?.en?.length ?? r.steps?.['sq-AL']?.length ?? 0;
+        if (diffFilter === 'easy') return steps <= 3 && steps > 0;
+        if (diffFilter === 'med')  return steps >= 4 && steps <= 6;
+        if (diffFilter === 'hard') return steps >= 7;
+        return true;
+      });
+    }
     if (hideAllergens && reactionTerms.length > 0) {
       filtered = filtered.filter((r) => {
         const allText = [
@@ -199,7 +210,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       filtered = [...filtered].sort((a, b) => (ratingsMap[b.id] ?? 0) - (ratingsMap[a.id] ?? 0));
     }
     return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, mealFilter, timeFilter, sortMode, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
+  }, [recipes, ageFilter, mealFilter, timeFilter, diffFilter, sortMode, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -498,6 +509,26 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               onPress={() => { setTimeFilter(f.id); setShowAll(false); }}
             >
               <Text style={[s.filterChipText, s.filterChipTextSmall, timeFilter === f.id && s.filterChipTextOn]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── Difficulty filter chips ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {([
+            { id: 'any',  label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
+            { id: 'easy', label: '● Easy' },
+            { id: 'med',  label: '●● Med' },
+            { id: 'hard', label: '●●● Hard' },
+          ] as const).map((f) => (
+            <Pressable
+              key={f.id}
+              style={[s.filterChip, s.filterChipSmall, diffFilter === f.id && s.filterChipOn]}
+              onPress={() => { setDiffFilter(f.id); setShowAll(false); }}
+            >
+              <Text style={[s.filterChipText, s.filterChipTextSmall, diffFilter === f.id && s.filterChipTextOn]}>
                 {f.label}
               </Text>
             </Pressable>
