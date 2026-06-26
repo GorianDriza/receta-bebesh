@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
@@ -18,6 +18,7 @@ const LABELS: Record<AppLanguage, {
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
   addAllToList: string; itemAdded: string; viewList: string;
   startCooking: string; ratingTitle: string; notePlaceholder: string; noteSaved: string;
+  share: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
@@ -26,6 +27,7 @@ const LABELS: Record<AppLanguage, {
     addAllToList: 'Shto të gjitha në listë', itemAdded: '✓ Shtuar',
     viewList: 'Shiko listën', startCooking: '👨‍🍳 Fillo gatimin',
     ratingTitle: 'Vlerësimi juaj', notePlaceholder: 'Shënime (opsionale)...', noteSaved: '✓ Ruajtur',
+    share: 'Ndaj',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
@@ -34,6 +36,7 @@ const LABELS: Record<AppLanguage, {
     addAllToList: 'Add all to list', itemAdded: '✓ Added',
     viewList: 'View list', startCooking: '👨‍🍳 Start Cooking',
     ratingTitle: 'Your rating', notePlaceholder: 'Notes (optional)...', noteSaved: '✓ Saved',
+    share: 'Share',
   },
 };
 
@@ -92,6 +95,20 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
     setTimeout(() => setAllAddedMsg(false), 2000);
   }
 
+  async function handleShare() {
+    if (!recipe) return;
+    const title = recipe.title[language];
+    const url = recipe.source?.url ?? null;
+    const message = url
+      ? `${title} — Receta Bebesh\n${url}`
+      : title;
+    try {
+      await Share.share({ message, title });
+    } catch {
+      // User cancelled or share unavailable
+    }
+  }
+
   const imageUrl = recipe?.image?.downloadUrl ?? recipe?.image?.sourceUrl ?? null;
   const duration = recipe?.totalMinutes ?? recipe?.prepMinutes ?? null;
 
@@ -109,9 +126,14 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
           <View style={s.closeBubble}>
             <IconButton icon="arrow-left" size={22} iconColor="#1A1714" style={s.icon0} onPress={onClose} />
           </View>
-          <Pressable style={s.cartBubble} onPress={() => setShoppingOpen(true)}>
-            <Text style={s.cartIcon}>🛒</Text>
-          </Pressable>
+          <View style={s.topBarRight}>
+            <Pressable style={s.cartBubble} onPress={handleShare}>
+              <Text style={s.cartIcon}>↗</Text>
+            </Pressable>
+            <Pressable style={s.cartBubble} onPress={() => setShoppingOpen(true)}>
+              <Text style={s.cartIcon}>🛒</Text>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView
@@ -274,6 +296,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  topBarRight: { flexDirection: 'row', gap: 8 },
   cartBubble: {
     width: 44, height: 44,
     borderRadius: 22,
