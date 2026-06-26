@@ -27,6 +27,7 @@ import {
   WeekPlan,
 } from '../lib/planner';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
+import { addShoppingItem } from '../lib/shoppingList';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -118,6 +119,32 @@ export function PlannerContent({ onLoginRequired }: Props) {
       return { ...prev, [activeDay]: day };
     });
     await removePlannerEntry(user.uid, weekKey, activeDay, meal);
+  }
+
+  const [addedToList, setAddedToList] = useState(false);
+
+  async function addWeekToShoppingList() {
+    const recipeMap = new Map(recipes.map((r) => [r.id, r]));
+    const seen = new Set<string>();
+    const toAdd: string[] = [];
+    for (const dayKey of Object.keys(weekPlan)) {
+      const day = weekPlan[dayKey as DayKey] ?? {};
+      for (const meal of Object.values(day)) {
+        if (!meal) continue;
+        const recipe = recipeMap.get(meal.recipeId);
+        if (!recipe) continue;
+        for (const ing of recipe.ingredients?.[language] ?? []) {
+          const normalized = ing.trim();
+          if (normalized && !seen.has(normalized.toLowerCase())) {
+            seen.add(normalized.toLowerCase());
+            toAdd.push(normalized);
+          }
+        }
+      }
+    }
+    for (const item of toAdd) await addShoppingItem(item);
+    setAddedToList(true);
+    setTimeout(() => setAddedToList(false), 2500);
   }
 
   const filteredRecipes = useMemo(() => {
@@ -237,6 +264,20 @@ export function PlannerContent({ onLoginRequired }: Props) {
             <SlotSkeleton />
             <SlotSkeleton />
           </View>
+        )}
+
+        {/* Add week to shopping list */}
+        {user && Object.values(weekPlan).some((d) => d && Object.keys(d).length > 0) && (
+          <Pressable
+            style={[s.shoppingBtn, addedToList && s.shoppingBtnDone]}
+            onPress={addWeekToShoppingList}
+          >
+            <Text style={s.shoppingBtnText}>
+              {addedToList
+                ? (language === 'sq-AL' ? '✓ Shtuar në listë!' : '✓ Added to list!')
+                : (language === 'sq-AL' ? '🛒 Shto ingredientet e javës' : '🛒 Add week ingredients to list')}
+            </Text>
+          </Pressable>
         )}
       </ScrollView>
 
@@ -380,4 +421,8 @@ const s = StyleSheet.create({
   pickerItemText: { flex: 1 },
   pickerItemTitle: { fontSize: 15, fontWeight: '700', color: '#1A1714', lineHeight: 20 },
   pickerItemMeta: { fontSize: 13, color: '#9E9590', marginTop: 2 },
+
+  shoppingBtn: { borderRadius: 999, backgroundColor: '#E8FAF8', borderWidth: 1, borderColor: '#98E8AA', paddingVertical: 16, alignItems: 'center' },
+  shoppingBtnDone: { backgroundColor: '#6ECAC0', borderColor: '#6ECAC0' },
+  shoppingBtnText: { fontSize: 16, fontWeight: '700', color: '#2A6B66' },
 });
