@@ -1,6 +1,40 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, ref, update } from 'firebase/database';
 
 import { firebaseDatabase } from './firebase';
+
+const RECIPE_CACHE_KEY = '@recipes_cache';
+const RECIPE_CACHE_META_KEY = '@recipes_cache_meta';
+
+type CacheMeta = { cachedAt: number; count: number };
+
+async function saveRecipeCache(recipes: RecipeRecord[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RECIPE_CACHE_KEY, JSON.stringify(recipes));
+    const meta: CacheMeta = { cachedAt: Date.now(), count: recipes.length };
+    await AsyncStorage.setItem(RECIPE_CACHE_META_KEY, JSON.stringify(meta));
+  } catch {
+    // Non-fatal — cache write failures are silent
+  }
+}
+
+async function loadRecipeCache(): Promise<RecipeRecord[] | null> {
+  try {
+    const json = await AsyncStorage.getItem(RECIPE_CACHE_KEY);
+    return json ? (JSON.parse(json) as RecipeRecord[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getRecipeCacheMeta(): Promise<CacheMeta | null> {
+  try {
+    const json = await AsyncStorage.getItem(RECIPE_CACHE_META_KEY);
+    return json ? (JSON.parse(json) as CacheMeta) : null;
+  } catch {
+    return null;
+  }
+}
 
 export type RecipeLanguage = 'sq-AL' | 'en';
 export type TranslationStatus = 'pending' | 'machine' | 'reviewed';
@@ -67,22 +101,26 @@ export type RecipeRecord = {
 
 type RecipeMap = Record<string, RecipeRecord>;
 
+export type FetchResult = { recipes: RecipeRecord[]; fromCache: boolean };
+
 export async function fetchRecipes(): Promise<RecipeRecord[]> {
   if (!firebaseDatabase) {
-    return [];
+    return (await loadRecipeCache()) ?? [];
   }
 
-  const snapshot = await get(ref(firebaseDatabase, 'recipes'));
-
-  if (!snapshot.exists()) {
-    return [];
+  try {
+    const snapshot = await get(ref(firebaseDatabase, 'recipes'));
+    if (!snapshot.exists()) {
+      return (await loadRecipeCache()) ?? [];
+    }
+    const recipes = Object.values(snapshot.val() as RecipeMap).sort((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt),
+    );
+    await saveRecipeCache(recipes);
+    return recipes;
+  } catch {
+    return (await loadRecipeCache()) ?? [];
   }
-
-  const recipes = snapshot.val() as RecipeMap;
-
-  return Object.values(recipes).sort((left, right) =>
-    right.updatedAt.localeCompare(left.updatedAt),
-  );
 }
 
 export async function upsertRecipes(recipes: RecipeRecord[]) {

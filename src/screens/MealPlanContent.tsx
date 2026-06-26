@@ -8,7 +8,7 @@ import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
-import { fetchRecipes, RecipeRecord, RecipeStage } from '../lib/recipes';
+import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../lib/recipes';
 import { getAllRatings } from '../lib/ratings';
 import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
@@ -49,6 +49,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [recipes, setRecipes]         = useState<RecipeRecord[]>([]);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState<string | null>(null);
+  const [cacheDate, setCacheDate]     = useState<number | null>(null);
   const [selected, setSelected]       = useState<RecipeRecord | null>(null);
   const [favouriteIds, setFavIds]     = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +75,10 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     setLoading(true);
     setError(null);
     fetchRecipes()
-      .then((data) => { if (mounted) startTransition(() => setRecipes(data)); })
+      .then((data) => {
+        if (mounted) startTransition(() => setRecipes(data));
+        getRecipeCacheMeta().then((meta) => { if (mounted && meta) setCacheDate(meta.cachedAt); }).catch(() => {});
+      })
       .catch((err) => { if (mounted) setError(err instanceof Error ? err.message : 'Could not load recipes.'); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
@@ -260,10 +264,17 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
         {/* ── Section header ── */}
         <View style={s.sectionRow}>
-          <Text style={s.sectionTitle}>
-            {language === 'sq-AL' ? 'Recetat' : 'Recipes'}
-            {recipes.length > 0 && <Text style={s.recipeCount}> ({recipes.length})</Text>}
-          </Text>
+          <View>
+            <Text style={s.sectionTitle}>
+              {language === 'sq-AL' ? 'Recetat' : 'Recipes'}
+              {recipes.length > 0 && <Text style={s.recipeCount}> ({recipes.length})</Text>}
+            </Text>
+            {cacheDate != null && (
+              <Text style={s.cacheHint}>
+                {language === 'sq-AL' ? '📦 Ruajtur lokalisht' : '📦 Loaded from cache'}
+              </Text>
+            )}
+          </View>
           <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
             <Text style={s.seeAll}>
               {showAll
@@ -479,6 +490,7 @@ const s = StyleSheet.create({
   sectionRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
+  cacheHint:     { fontSize: 12, color: '#B0A9A3', marginTop: 2 },
   seeAll:        { fontSize: 18, color: '#6A6475' },
 
   searchBar: {
