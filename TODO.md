@@ -113,9 +113,9 @@
 - [x] Albanian (`sq-AL`) is the default app language.
 - [x] English as a user-selectable language via chip switcher.
 - [x] Translation structure defined for UI copy, recipe fields, categories, and age labels.
-- [ ] Add auth screen strings to translations (sign-up, log-in, errors).
-- [ ] Add profile screen strings to translations.
-- [ ] Add language switcher in profile screen (remove from home header).
+- [x] Add auth screen strings to translations (sign-up, log-in, errors).
+- [x] Add profile screen strings to translations.
+- [x] Add language switcher in profile screen (remove from home header).
 
 ## Recipe Import Pipeline
 
@@ -142,5 +142,5 @@
 
 ## Notifications (future)
 
-- [ ] Daily meal-plan reminder push notification.
+- [x] Daily meal-plan reminder push notification.
 - [ ] "New recipe added" notification for subscribed users.

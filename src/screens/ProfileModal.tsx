@@ -18,7 +18,7 @@ import { DatePickerField } from '../components/DatePickerField';
 import { updateUserProfile, formatBabyAge, computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
-import { AppLanguage } from '../i18n/translations';
+import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
 
 const L = {
@@ -62,13 +62,11 @@ type ImageManipulatorModule = typeof import('expo-image-manipulator');
 
 function getPhotoModuleAlert(language: AppLanguage) {
   const command = Platform.OS === 'ios' ? 'npx expo run:ios' : 'npx expo run:android';
+  const profile = translations[language].profile;
 
   return {
-    title: language === 'sq-AL' ? 'Rindertim i aplikacionit' : 'App rebuild required',
-    message:
-      language === 'sq-AL'
-        ? `Build-i i instaluar nuk perfshin modulet native te fotove. Rindertoje dhe riinstaloje aplikacionin me: ${command}`
-        : `The installed app build does not include the native photo modules yet. Rebuild and reinstall it with: ${command}`,
+    title: profile.photoRebuildTitle,
+    message: profile.photoRebuildBody(command),
   };
 }
 
@@ -100,9 +98,9 @@ function loadPhotoModules():
 }
 
 export function ProfileModal({ visible, onClose }: Props) {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { user, userProfile, refreshProfile } = useAuth();
-  const l = L[language];
+  const l = t[language].profile;
 
   const [name, setName]             = useState('');
   const [babyName, setBabyName]     = useState('');

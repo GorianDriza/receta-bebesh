@@ -48,9 +48,9 @@ const L = {
 type Props = { onGoSignUp: () => void; onGuestContinue?: () => void };
 
 export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const l = L[language];
+  const l = t[language].auth.login;
   const firebaseConfigError = getFirebaseConfigErrorMessage();
 
   const [email, setEmail]       = useState('');
