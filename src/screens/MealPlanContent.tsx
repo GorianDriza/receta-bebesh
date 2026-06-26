@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
+import { MilestoneBanner } from '../components/MilestoneBanner';
 import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
@@ -251,6 +252,11 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
             </View>
           </View>
         </Surface>
+
+        {/* ── Milestone banner ── */}
+        {userProfile?.babyBirthdate != null && (
+          <MilestoneBanner babyBirthdate={userProfile.babyBirthdate} language={language} />
+        )}
 
         {/* ── Section header ── */}
         <View style={s.sectionRow}>
