@@ -20,6 +20,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
+import { FoodTrackerModal } from './FoodTrackerModal';
 
 const L = {
   'sq-AL': {
@@ -37,6 +38,7 @@ const L = {
     logoutYes: 'Po, dil',
     logoutNo: 'Anulo',
     email: 'Email',
+    foodTracker: 'Ushqimet e Provuara',
   },
   en: {
     title: 'Profile',
@@ -53,6 +55,7 @@ const L = {
     logoutYes: 'Sign Out',
     logoutNo: 'Cancel',
     email: 'Email',
+    foodTracker: 'Foods Introduced',
   },
 } as const;
 
@@ -108,6 +111,7 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [photoBase64, setPhotoBase64] = useState<string | undefined>(undefined);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
+  const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
 
   // Sync fields each time modal opens or profile loads from cache/Firebase
   useEffect(() => {
@@ -312,6 +316,13 @@ export function ProfileModal({ visible, onClose }: Props) {
               </Pressable>
             </View>
 
+            {/* Food Tracker */}
+            <Pressable style={s.foodTrackerBtn} onPress={() => setFoodTrackerOpen(true)}>
+              <Text style={s.foodTrackerIcon}>🍎</Text>
+              <Text style={s.foodTrackerLabel}>{L[language].foodTracker}</Text>
+              <Text style={s.foodTrackerArrow}>›</Text>
+            </Pressable>
+
             {/* Logout */}
             <Pressable style={s.logoutBtn} onPress={handleLogout}>
               <Text style={s.logoutLabel}>{l.logoutBtn}</Text>
@@ -320,6 +331,7 @@ export function ProfileModal({ visible, onClose }: Props) {
         </KeyboardAvoidingView>
       </SafeAreaView>
       </SafeAreaProvider>
+      <FoodTrackerModal visible={foodTrackerOpen} onClose={() => setFoodTrackerOpen(false)} />
     </Modal>
   );
 }
@@ -403,6 +415,15 @@ const s = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+
+  foodTrackerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#E8FAF8', borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 16, marginBottom: 8,
+  },
+  foodTrackerIcon: { fontSize: 22 },
+  foodTrackerLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#2A6B66' },
+  foodTrackerArrow: { fontSize: 22, color: '#3AABA0', fontWeight: '300' },
 
   logoutBtn: {
     backgroundColor: '#FFFFFF',
