@@ -40,3 +40,8 @@ export async function clearCheckedItems(): Promise<void> {
   const list = await getShoppingList();
   await AsyncStorage.setItem(KEY, JSON.stringify(list.filter((i) => !i.checked)));
 }
+
+export async function getUncheckedCount(): Promise<number> {
+  const list = await getShoppingList();
+  return list.filter((i) => !i.checked).length;
+}

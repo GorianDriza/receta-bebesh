@@ -12,6 +12,7 @@ import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../
 import { getAllRatings } from '../lib/ratings';
 import { getReactionTerms } from '../lib/foodTracker';
 import { getRecentlyCookedIds } from '../lib/cookHistory';
+import { getUncheckedCount } from '../lib/shoppingList';
 import { computeAgeStage } from '../lib/users';
 import { AIPlanModal } from './AIPlanModal';
 import { useAuth } from '../providers/AuthProvider';
@@ -61,6 +62,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
   const [ratingsMap, setRatingsMap]   = useState<Record<string, number>>({});
   const [recentIds, setRecentIds]         = useState<string[]>([]);
+  const [cartCount, setCartCount]         = useState(0);
   const [reactionTerms, setReactionTerms] = useState<string[]>([]);
   const [reactionCount, setReactionCount] = useState(0);
   const [hideAllergens, setHideAllergens] = useState(false);
@@ -115,6 +117,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       setReactionCount(count);
     }).catch(() => {});
     getRecentlyCookedIds().then(setRecentIds).catch(() => {});
+    getUncheckedCount().then(setCartCount).catch(() => {});
   }, []);
 
   async function toggleFavourite(recipe: RecipeRecord) {
@@ -235,8 +238,16 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
             )}
           </View>
-          <Pressable style={s.cartBtn} onPress={onShoppingPress} hitSlop={8}>
+          <Pressable style={s.cartBtn} onPress={() => {
+            onShoppingPress?.();
+            setTimeout(() => getUncheckedCount().then(setCartCount).catch(() => {}), 500);
+          }} hitSlop={8}>
             <Text style={s.cartIcon}>🛒</Text>
+            {cartCount > 0 && (
+              <View style={s.cartBadge}>
+                <Text style={s.cartBadgeText}>{cartCount > 9 ? '9+' : cartCount}</Text>
+              </View>
+            )}
           </Pressable>
           <Pressable style={s.avatarBtn} onPress={onAvatarPress} hitSlop={8}>
             {userProfile?.photoBase64 ? (
@@ -591,6 +602,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           setReactionTerms(terms);
           setReactionCount(count);
         }).catch(() => {});
+        getUncheckedCount().then(setCartCount).catch(() => {});
       }} />
       {plannerRecipe != null && (
         <PlannerPickerSheet
@@ -622,6 +634,13 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   cartIcon: { fontSize: 22 },
+  cartBadge: {
+    position: 'absolute', top: 2, right: 2,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#E05252', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
   avatarBtn: {
     width: 48, height: 48, borderRadius: 24,
     backgroundColor: '#6ECAC0',
