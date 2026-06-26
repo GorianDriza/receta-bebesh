@@ -40,8 +40,9 @@ function durationLabel(r: RecipeRecord): string {
   return mins != null ? `${mins} min` : '';
 }
 
-type FilterId = RecipeStage | 'all' | 'fav';
+type FilterId = RecipeStage | 'all' | 'fav' | 'rated';
 type MealFilter = RecipeRecord['mealType'] | 'any';
+type TimeFilter = 'any' | 'quick' | 'medium';
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
 
@@ -70,6 +71,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
   const [ageFilter, setAgeFilter]   = useState<FilterId>(defaultFilter);
   const [mealFilter, setMealFilter] = useState<MealFilter>('any');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('any');
   const [showAll, setShowAll]       = useState(false);
 
   // Re-apply default when profile loads
@@ -138,11 +140,18 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     let filtered = recipes;
     if (ageFilter === 'fav') {
       filtered = filtered.filter((r) => favouriteIds.has(r.id));
+    } else if (ageFilter === 'rated') {
+      filtered = filtered.filter((r) => (ratingsMap[r.id] ?? 0) > 0);
     } else if (ageFilter !== 'all') {
       filtered = filtered.filter((r) => r.ageStage === ageFilter);
     }
     if (mealFilter !== 'any') {
       filtered = filtered.filter((r) => r.mealType === mealFilter);
+    }
+    if (timeFilter === 'quick') {
+      filtered = filtered.filter((r) => (r.totalMinutes ?? r.prepMinutes ?? 999) <= 15);
+    } else if (timeFilter === 'medium') {
+      filtered = filtered.filter((r) => (r.totalMinutes ?? r.prepMinutes ?? 999) <= 30);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -158,7 +167,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       });
     }
     return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, mealFilter, favouriteIds, searchQuery, language, showAll, hideAllergens, reactionTerms]);
+  }, [recipes, ageFilter, mealFilter, timeFilter, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -191,6 +200,13 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     { id: '9-12m', label: '9-12m' },
     { id: '12m+',  label: '12m+' },
     { id: 'fav',   label: language === 'sq-AL' ? '♡ Ruajtura' : '♡ Saved' },
+    { id: 'rated', label: language === 'sq-AL' ? '⭐ Vlerësuara' : '⭐ Rated' },
+  ];
+
+  const TIME_FILTERS: Array<{ id: TimeFilter; label: string }> = [
+    { id: 'any',    label: language === 'sq-AL' ? 'Çdo kohë' : 'Any time' },
+    { id: 'quick',  label: language === 'sq-AL' ? '⚡ <15 min' : '⚡ <15 min' },
+    { id: 'medium', label: language === 'sq-AL' ? '🕐 <30 min' : '🕐 <30 min' },
   ];
 
   const MEAL_FILTERS: Array<{ id: MealFilter; label: string }> = [
@@ -376,6 +392,21 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               onPress={() => { setMealFilter(f.id); setShowAll(false); }}
             >
               <Text style={[s.filterChipText, s.filterChipTextSmall, mealFilter === f.id && s.filterChipTextOn]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── Time filter chips ── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {TIME_FILTERS.map((f) => (
+            <Pressable
+              key={f.id}
+              style={[s.filterChip, s.filterChipSmall, timeFilter === f.id && s.filterChipOn]}
+              onPress={() => { setTimeFilter(f.id); setShowAll(false); }}
+            >
+              <Text style={[s.filterChipText, s.filterChipTextSmall, timeFilter === f.id && s.filterChipTextOn]}>
                 {f.label}
               </Text>
             </Pressable>
