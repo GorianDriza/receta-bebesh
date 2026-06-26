@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
@@ -132,6 +133,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
   async function toggleFavourite(recipe: RecipeRecord) {
     if (!user) { onLoginRequired?.(); return; }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const isFav = favouriteIds.has(recipe.id);
     // Optimistic UI
     setFavIds((prev) => {

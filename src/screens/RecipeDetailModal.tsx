@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
@@ -89,6 +90,7 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
 
   async function handleSaveRating(stars: number) {
     if (!recipe) return;
+    void Haptics.selectionAsync();
     setRatingStars(stars);
     await setRating(recipe.id, stars, ratingNote);
     setRatingSaved(true);
@@ -111,6 +113,7 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
   }
 
   async function handleAddAll() {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const ings = recipe?.ingredients[language] ?? [];
     await Promise.all(ings.map((text) => addShoppingItem(text)));
     setAllAddedMsg(true);

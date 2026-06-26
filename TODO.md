@@ -27,7 +27,7 @@
 - [x] **Recipe sharing** — share recipe via system sheet (title + source URL)
 - [x] **Offline mode** — cache recipes in AsyncStorage; "Loaded from cache" indicator
 - [x] **Allergy-aware filter** — food tracker marks reactions; "🚫 Hide allergens" chip filters recipes
-- [ ] **Meal history calendar** — calendar heat-map view; streak counter
+- [x] **Meal history calendar** — calendar heat-map view; streak counter
 - [x] **Multiple baby profiles** — support for siblings; switcher in header
 - [x] **Nutrition info display** — calories / protein / iron / vitamin per recipe
 - [ ] **Community meal photos** — users submit their prepared-meal photo; carousel on recipe detail
