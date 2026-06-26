@@ -75,6 +75,25 @@ export type WeekDaySummary = {
   entries: CookedEntry[];
 };
 
+export async function getMonthCookCounts(year: number, month: number): Promise<Record<string, number>> {
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const prefix = `${PREFIX}${year}-${String(month).padStart(2, '0')}-`;
+    const relevant = allKeys.filter((k) => k.startsWith(prefix));
+    const result: Record<string, number> = {};
+    for (const key of relevant) {
+      const json = await AsyncStorage.getItem(key);
+      if (!json) continue;
+      const history = JSON.parse(json) as DayHistory;
+      const day = key.replace(PREFIX, '');
+      result[day] = Object.keys(history).length;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
 export async function getWeekCookSummary(): Promise<WeekDaySummary[]> {
   const today = new Date();
   const result: WeekDaySummary[] = [];

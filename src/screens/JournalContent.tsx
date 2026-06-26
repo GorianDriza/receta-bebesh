@@ -10,7 +10,7 @@ import {
   PlannerMealType,
   todayDayKey,
 } from '../lib/planner';
-import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary, WeekDaySummary } from '../lib/cookHistory';
+import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary, WeekDaySummary, getMonthCookCounts } from '../lib/cookHistory';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -41,12 +41,46 @@ export function JournalContent({ onLoginRequired }: Props) {
   const [cooked, setCooked]         = useState<DayHistory>({});
   const [streak, setStreak]         = useState(0);
   const [weekSummary, setWeekSummary] = useState<WeekDaySummary[]>([]);
+  const today = new Date();
+  const [calYear, setCalYear]   = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth() + 1);
+  const [monthCounts, setMonthCounts] = useState<Record<string, number>>({});
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedEntries, setSelectedEntries] = useState<DayHistory>({});
 
   useEffect(() => {
     getDayHistory().then(setCooked).catch(() => {});
     getCookStreak().then(setStreak).catch(() => {});
     getWeekCookSummary().then(setWeekSummary).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    getMonthCookCounts(calYear, calMonth).then(setMonthCounts).catch(() => {});
+  }, [calYear, calMonth]);
+
+  function buildCalendarDays(): (string | null)[] {
+    const firstDay = new Date(calYear, calMonth - 1, 1);
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+    // ISO week starts Monday; getDay() 0=Sun → offset
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const cells: (string | null)[] = Array(startOffset).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push(`${calYear}-${String(calMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+    }
+    return cells;
+  }
+
+  function shiftMonth(delta: number) {
+    let m = calMonth + delta;
+    let y = calYear;
+    if (m > 12) { m = 1; y++; }
+    if (m < 1) { m = 12; y--; }
+    setCalMonth(m);
+    setCalYear(y);
+    setSelectedDay(null);
+  }
+
+  const calDays = buildCalendarDays();
 
   useEffect(() => {
     if (!user || !isFirebaseConfigured) return;
@@ -245,6 +279,78 @@ export function JournalContent({ onLoginRequired }: Props) {
         </Surface>
       )}
 
+      {/* ── Month calendar heat-map ── */}
+      <Surface style={s.calCard} elevation={0}>
+        <View style={s.calHeader}>
+          <Pressable style={s.calNavBtn} onPress={() => shiftMonth(-1)}>
+            <Text style={s.calNavText}>‹</Text>
+          </Pressable>
+          <Text style={s.calMonthLabel}>
+            {new Date(calYear, calMonth - 1, 1).toLocaleDateString(
+              language === 'sq-AL' ? 'sq-AL' : 'en-US',
+              { month: 'long', year: 'numeric' },
+            )}
+          </Text>
+          <Pressable style={s.calNavBtn} onPress={() => shiftMonth(1)}>
+            <Text style={s.calNavText}>›</Text>
+          </Pressable>
+        </View>
+        <View style={s.calDoW}>
+          {['H', 'M', 'M', 'E', 'P', 'S', 'D'].map((d, i) => (
+            <Text key={i} style={s.calDoWText}>{d}</Text>
+          ))}
+        </View>
+        <View style={s.calGrid}>
+          {calDays.map((dayKey, idx) => {
+            if (dayKey == null) return <View key={`empty-${idx}`} style={s.calCell} />;
+            const count = monthCounts[dayKey] ?? 0;
+            const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const isToday = dayKey === todayKey;
+            const isSelected = dayKey === selectedDay;
+            const dayNum = Number(dayKey.split('-')[2]);
+            const dotBg = count >= 2 ? '#6ECAC0' : count === 1 ? '#B8EDE9' : '#F0EDE0';
+            return (
+              <Pressable
+                key={dayKey}
+                style={s.calCell}
+                onPress={async () => {
+                  if (selectedDay === dayKey) { setSelectedDay(null); return; }
+                  setSelectedDay(dayKey);
+                  const parts = dayKey.split('-');
+                  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                  const hist = await getDayHistory(d);
+                  setSelectedEntries(hist);
+                }}
+              >
+                <View style={[
+                  s.calDot,
+                  { backgroundColor: dotBg },
+                  isToday && s.calDotToday,
+                  isSelected && s.calDotSelected,
+                ]}>
+                  <Text style={[s.calDayNum, count > 0 && s.calDayNumActive]}>{dayNum}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {selectedDay && Object.keys(selectedEntries).length > 0 && (
+          <View style={s.calDetail}>
+            {Object.values(selectedEntries).map((e, i) => e && (
+              <Text key={i} style={s.calDetailText}>✓ {e.recipeTitle}</Text>
+            ))}
+          </View>
+        )}
+        {selectedDay && Object.keys(selectedEntries).length === 0 && (
+          <View style={s.calDetail}>
+            <Text style={s.calDetailEmpty}>
+              {language === 'sq-AL' ? 'Asnjë vakt i gatuar' : 'No meals cooked'}
+            </Text>
+          </View>
+        )}
+      </Surface>
+
       {/* ── Cooked this week ── */}
       {weekSummary.some((d) => d.count > 0) && (
         <>
@@ -333,6 +439,28 @@ const s = StyleSheet.create({
 
   noticeCard: { borderRadius: 24, backgroundColor: '#FFFFFFD9', padding: 16 },
   noticeText: { fontSize: 15, color: '#6E6560', textAlign: 'center' },
+
+  calCard: {
+    borderRadius: 28, backgroundColor: '#FEFEFE',
+    padding: 16, gap: 10,
+    borderWidth: 1, borderColor: '#F0EDE8',
+  },
+  calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  calNavBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  calNavText: { fontSize: 26, color: '#111111', fontWeight: '300' },
+  calMonthLabel: { fontSize: 17, fontWeight: '800', color: '#111111', textTransform: 'capitalize' },
+  calDoW: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 },
+  calDoWText: { width: 36, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#9E9590', textTransform: 'uppercase' },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 2 },
+  calDot: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  calDotToday: { borderWidth: 2, borderColor: '#111111' },
+  calDotSelected: { borderWidth: 2, borderColor: '#6ECAC0' },
+  calDayNum: { fontSize: 13, fontWeight: '600', color: '#9E9590' },
+  calDayNumActive: { color: '#1A3D3A', fontWeight: '800' },
+  calDetail: { backgroundColor: '#F5FFFE', borderRadius: 14, padding: 12, gap: 6 },
+  calDetailText: { fontSize: 14, color: '#1A3D3A', fontWeight: '600' },
+  calDetailEmpty: { fontSize: 14, color: '#9E9590', textAlign: 'center' },
 
   historyList: { gap: 10 },
   historyCard: { borderRadius: 18, backgroundColor: '#FEFEFE', padding: 14, gap: 8, borderWidth: 1, borderColor: '#F0EDE8' },

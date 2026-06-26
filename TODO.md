@@ -33,9 +33,9 @@
 - [ ] **Community meal photos** — users submit their prepared-meal photo; carousel on recipe detail
 
 ### Long-term / Nice-to-have
-- [ ] **Weight & height tracker** — log measurements; chart with `react-native-svg`
-- [ ] **AI weekly plan** — Gemini generates 7-day plan from age + favourites
-- [ ] **Voice step-by-step** — read recipe aloud in Albanian or English via TTS
+- [x] **Weight & height tracker** — log measurements; chart with `react-native-svg`
+- [x] **AI weekly plan** — Gemini generates 7-day plan from age + favourites
+- [x] **Voice step-by-step** — read recipe aloud in Albanian or English via TTS
 - [ ] **Apple / Google Sign-In** — needs EAS dev build (`eas build --profile development`)
 - [ ] **Firebase Storage photos** — upgrade to Blaze; full-res avatars + recipe images in Cloud Storage
 - [ ] **Remote push notifications** — EAS build + FCM; "new recipe added" alerts
