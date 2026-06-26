@@ -1,5 +1,6 @@
 import { useKeepAwake } from 'expo-keep-awake';
-import { useState } from 'react';
+import * as Speech from 'expo-speech';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Text } from 'react-native-paper';
@@ -16,6 +17,11 @@ const L: Record<AppLanguage, {
   en:      { step: 'Step', of: 'of',  done: 'Done!',   finish: 'Finish', prev: 'Back',  next: 'Next'    },
 };
 
+const SPEECH_LANG: Record<AppLanguage, string> = {
+  'sq-AL': 'sq',
+  en:      'en-US',
+};
+
 type Props = { recipe: RecipeRecord; visible: boolean; onClose: () => void };
 
 export function CookingModeModal({ recipe, visible, onClose }: Props) {
@@ -25,9 +31,38 @@ export function CookingModeModal({ recipe, visible, onClose }: Props) {
   const labels = L[language];
   const steps = recipe.steps[language] ?? [];
   const [step, setStep] = useState(0);
+  const [speaking, setSpeaking] = useState(false);
 
-  function goNext() { if (step < steps.length - 1) setStep(step + 1); }
-  function goPrev() { if (step > 0) setStep(step - 1); }
+  useEffect(() => {
+    if (!visible) Speech.stop();
+  }, [visible]);
+
+  function speakStep() {
+    const text = steps[step];
+    if (!text) return;
+    if (speaking) {
+      Speech.stop();
+      setSpeaking(false);
+    } else {
+      setSpeaking(true);
+      Speech.speak(text, {
+        language: SPEECH_LANG[language],
+        rate: 0.9,
+        onDone: () => setSpeaking(false),
+        onStopped: () => setSpeaking(false),
+        onError: () => setSpeaking(false),
+      });
+    }
+  }
+
+  function goNext() {
+    Speech.stop(); setSpeaking(false);
+    if (step < steps.length - 1) setStep(step + 1);
+  }
+  function goPrev() {
+    Speech.stop(); setSpeaking(false);
+    if (step > 0) setStep(step - 1);
+  }
 
   const isLast = step === steps.length - 1;
 
@@ -39,7 +74,9 @@ export function CookingModeModal({ recipe, visible, onClose }: Props) {
           <View style={s.topBar}>
             <IconButton icon="close" size={24} iconColor="#FFFFFF" style={s.icon0} onPress={onClose} />
             <Text style={s.recipeName} numberOfLines={1}>{recipe.title[language]}</Text>
-            <View style={s.icon0Placeholder} />
+            <Pressable style={[s.speakBtn, speaking && s.speakBtnOn]} onPress={speakStep} hitSlop={8}>
+              <Text style={s.speakIcon}>{speaking ? '⏹' : '🔊'}</Text>
+            </Pressable>
           </View>
 
           {/* Progress dots */}
@@ -125,4 +162,7 @@ const s = StyleSheet.create({
   navBtnDisabled:  { opacity: 0.3 },
   navLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
   navLabelSecondary: { color: '#FFFFFFAA' },
+  speakBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2D2748', alignItems: 'center', justifyContent: 'center' },
+  speakBtnOn: { backgroundColor: '#6ECAC0' },
+  speakIcon: { fontSize: 20 },
 });
