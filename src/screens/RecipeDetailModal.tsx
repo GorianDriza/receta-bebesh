@@ -4,24 +4,31 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
+import { ShoppingListModal } from './ShoppingListModal';
 import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from '../lib/recipes';
+import { addShoppingItem } from '../lib/shoppingList';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
 const LABELS: Record<AppLanguage, {
   ingredients: string; instructions: string;
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
+  addAllToList: string; itemAdded: string; viewList: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
     min: 'min', noImage: 'Nuk ka imazh',
     addToPlanner: 'Shto në Plan', plannerAdded: 'U shtua!',
+    addAllToList: 'Shto të gjitha në listë', itemAdded: '✓ Shtuar',
+    viewList: 'Shiko listën',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
     min: 'min', noImage: 'No image',
     addToPlanner: 'Add to Plan', plannerAdded: 'Added!',
+    addAllToList: 'Add all to list', itemAdded: '✓ Added',
+    viewList: 'View list',
   },
 };
 
@@ -32,8 +39,24 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
   const { user } = useAuth();
   const L = LABELS[language];
 
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [addedMsg, setAddedMsg]       = useState(false);
+  const [plannerOpen, setPlannerOpen]   = useState(false);
+  const [addedMsg, setAddedMsg]         = useState(false);
+  const [shoppingOpen, setShoppingOpen] = useState(false);
+  const [addedIngIds, setAddedIngIds]   = useState<Set<number>>(new Set());
+  const [allAddedMsg, setAllAddedMsg]   = useState(false);
+
+  async function handleAddIngredient(text: string, index: number) {
+    await addShoppingItem(text);
+    setAddedIngIds((prev) => new Set([...prev, index]));
+    setTimeout(() => setAddedIngIds((prev) => { const n = new Set(prev); n.delete(index); return n; }), 1500);
+  }
+
+  async function handleAddAll() {
+    const ings = recipe?.ingredients[language] ?? [];
+    await Promise.all(ings.map((text) => addShoppingItem(text)));
+    setAllAddedMsg(true);
+    setTimeout(() => setAllAddedMsg(false), 2000);
+  }
 
   const imageUrl = recipe?.image?.downloadUrl ?? recipe?.image?.sourceUrl ?? null;
   const duration = recipe?.totalMinutes ?? recipe?.prepMinutes ?? null;
@@ -52,6 +75,9 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
           <View style={s.closeBubble}>
             <IconButton icon="arrow-left" size={22} iconColor="#1A1714" style={s.icon0} onPress={onClose} />
           </View>
+          <Pressable style={s.cartBubble} onPress={() => setShoppingOpen(true)}>
+            <Text style={s.cartIcon}>🛒</Text>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -96,12 +122,18 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
             <View style={s.divider} />
 
             {/* Ingredients */}
-            <Text style={s.sectionHeading}>{L.ingredients}</Text>
+            <View style={s.sectionRow}>
+              <Text style={s.sectionHeading}>{L.ingredients}</Text>
+              <Pressable onPress={handleAddAll} style={s.addAllBtn}>
+                <Text style={s.addAllLabel}>{allAddedMsg ? L.itemAdded : `🛒 ${L.addAllToList}`}</Text>
+              </Pressable>
+            </View>
             {(recipe?.ingredients[language] ?? []).map((ing, i) => (
-              <View key={i} style={s.ingRow}>
+              <Pressable key={i} style={s.ingRow} onPress={() => handleAddIngredient(ing, i)}>
                 <View style={s.ingDot} />
-                <Text style={s.ingText}>{ing}</Text>
-              </View>
+                <Text style={[s.ingText, addedIngIds.has(i) && s.ingTextAdded]}>{ing}</Text>
+                {addedIngIds.has(i) && <Text style={s.ingCheck}>✓</Text>}
+              </Pressable>
             ))}
 
             <View style={s.divider} />
@@ -139,6 +171,8 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
             onAdded={() => { setAddedMsg(true); setTimeout(() => setAddedMsg(false), 2000); }}
           />
         )}
+
+        <ShoppingListModal visible={shoppingOpen} onClose={() => setShoppingOpen(false)} />
       </SafeAreaView>
       </SafeAreaProvider>
     </Modal>
@@ -160,6 +194,7 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   closeBubble: {
     width: 44, height: 44,
@@ -168,6 +203,14 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cartBubble: {
+    width: 44, height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFFCC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartIcon: { fontSize: 22 },
   icon0: { margin: 0 },
   scroll: { paddingBottom: 40 },
 
@@ -229,6 +272,14 @@ const s = StyleSheet.create({
   },
 
   // Ingredients
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addAllBtn: {
+    backgroundColor: '#E8FAF8',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addAllLabel: { fontSize: 12, fontWeight: '700', color: '#3AABA0' },
   ingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   ingDot: {
     width: 7, height: 7,
@@ -238,6 +289,8 @@ const s = StyleSheet.create({
     flexShrink: 0,
   },
   ingText: { flex: 1, fontSize: 15, lineHeight: 22, color: '#39354A' },
+  ingTextAdded: { color: '#3AABA0' },
+  ingCheck: { fontSize: 14, color: '#3AABA0', fontWeight: '800' },
 
   // Steps
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

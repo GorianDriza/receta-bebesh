@@ -38,9 +38,9 @@ function durationLabel(r: RecipeRecord): string {
 
 type FilterId = RecipeStage | 'all' | 'fav';
 
-type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void };
+type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
 
-export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
+export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPress }: Props) {
   const { language, t } = useLanguage();
   const { user, userProfile } = useAuth();
 
@@ -157,6 +157,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired }: Props) {
               <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
             )}
           </View>
+          <Pressable style={s.cartBtn} onPress={onShoppingPress} hitSlop={8}>
+            <Text style={s.cartIcon}>🛒</Text>
+          </Pressable>
           <Pressable style={s.avatarBtn} onPress={onAvatarPress} hitSlop={8}>
             {userProfile?.photoBase64 ? (
               <Image source={{ uri: userProfile.photoBase64 }} style={s.avatarPhoto} />
@@ -411,6 +414,13 @@ const s = StyleSheet.create({
   headerCopy: { flex: 1 },
   screenTitle: { fontSize: 38, lineHeight: 42, fontWeight: '800', letterSpacing: -1.4, color: '#111111' },
   screenSub: { marginTop: 6, fontSize: 15, lineHeight: 22, color: '#686074', maxWidth: 250 },
+  cartBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#FFFFFF44',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
+  },
+  cartIcon: { fontSize: 22 },
   avatarBtn: {
     width: 48, height: 48, borderRadius: 24,
     backgroundColor: '#6ECAC0',

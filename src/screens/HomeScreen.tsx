@@ -12,6 +12,7 @@ import { MealPlanContent } from './MealPlanContent';
 import { PlannerContent } from './PlannerContent';
 import { ProfileModal } from './ProfileModal';
 import { QuickContent } from './QuickContent';
+import { ShoppingListModal } from './ShoppingListModal';
 
 type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn';
 type AuthView = 'login' | 'signup' | null;
@@ -26,9 +27,10 @@ const TABS: Array<{ id: TabId; icon: string; label: string }> = [
 
 export function HomeScreen() {
   const { user } = useAuth();
-  const [activeTab,   setActiveTab]   = useState<TabId>('meals');
-  const [showProfile, setShowProfile] = useState(false);
-  const [authView,    setAuthView]    = useState<AuthView>(null);
+  const [activeTab,    setActiveTab]    = useState<TabId>('meals');
+  const [showProfile,  setShowProfile]  = useState(false);
+  const [authView,     setAuthView]     = useState<AuthView>(null);
+  const [showShopping, setShowShopping] = useState(false);
 
   // Auto-close auth overlay once login/signup succeeds
   useEffect(() => {
@@ -64,7 +66,7 @@ export function HomeScreen() {
       <View style={s.glowBottom} />
 
       <View style={s.screenArea}>
-        {activeTab === 'meals'   && <MealPlanContent onAvatarPress={handleAvatarPress} onLoginRequired={() => setAuthView('login')} />}
+        {activeTab === 'meals'   && <MealPlanContent onAvatarPress={handleAvatarPress} onLoginRequired={() => setAuthView('login')} onShoppingPress={() => setShowShopping(true)} />}
         {activeTab === 'planner' && <PlannerContent onLoginRequired={() => setAuthView('login')} />}
         {activeTab === 'spark'   && <QuickContent />}
         {activeTab === 'journal' && <JournalContent onLoginRequired={() => setAuthView('login')} />}
@@ -93,6 +95,7 @@ export function HomeScreen() {
       </Surface>
 
       <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
+      <ShoppingListModal visible={showShopping} onClose={() => setShowShopping(false)} />
     </SafeAreaView>
   );
 }
