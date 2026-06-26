@@ -57,6 +57,47 @@ const L = {
 } as const;
 
 type Props = { visible: boolean; onClose: () => void };
+type ImagePickerModule = typeof import('expo-image-picker');
+type ImageManipulatorModule = typeof import('expo-image-manipulator');
+
+function getPhotoModuleAlert(language: AppLanguage) {
+  const command = Platform.OS === 'ios' ? 'npx expo run:ios' : 'npx expo run:android';
+
+  return {
+    title: language === 'sq-AL' ? 'Rindertim i aplikacionit' : 'App rebuild required',
+    message:
+      language === 'sq-AL'
+        ? `Build-i i instaluar nuk perfshin modulet native te fotove. Rindertoje dhe riinstaloje aplikacionin me: ${command}`
+        : `The installed app build does not include the native photo modules yet. Rebuild and reinstall it with: ${command}`,
+  };
+}
+
+function loadPhotoModules():
+  | { picker: ImagePickerModule; manipulator: ImageManipulatorModule }
+  | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const picker = require('expo-image-picker') as Partial<ImagePickerModule>;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const manipulator = require('expo-image-manipulator') as Partial<ImageManipulatorModule>;
+
+    if (
+      typeof picker.requestMediaLibraryPermissionsAsync !== 'function' ||
+      typeof picker.launchImageLibraryAsync !== 'function' ||
+      typeof manipulator.manipulateAsync !== 'function' ||
+      !manipulator.SaveFormat?.JPEG
+    ) {
+      return null;
+    }
+
+    return {
+      picker: picker as ImagePickerModule,
+      manipulator: manipulator as ImageManipulatorModule,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function ProfileModal({ visible, onClose }: Props) {
   const { language, setLanguage } = useLanguage();
@@ -80,6 +121,43 @@ export function ProfileModal({ visible, onClose }: Props) {
   }, [visible, userProfile, user?.displayName]);
 
   async function handlePickPhoto() {
+    const photoModules = loadPhotoModules();
+    if (!photoModules) {
+      const alert = getPhotoModuleAlert(language);
+      Alert.alert(alert.title, alert.message);
+      return;
+    }
+
+    const photoPicker = photoModules.picker;
+    const photoManipulator = photoModules.manipulator;
+    const permission = await photoPicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert(
+        language === 'sq-AL' ? 'Leje e nevojshme' : 'Permission required',
+        language === 'sq-AL'
+          ? 'Aplikacioni ka nevojÃ« pÃ«r qasje nÃ« fotografi.'
+          : 'The app needs access to your photos.',
+      );
+      return;
+    }
+
+    const pickerResult = await photoPicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (pickerResult.canceled) return;
+
+    const resizedImage = await photoManipulator.manipulateAsync(
+      pickerResult.assets[0].uri,
+      [{ resize: { width: 200, height: 200 } }],
+      { compress: 0.6, format: photoManipulator.SaveFormat.JPEG, base64: true },
+    );
+    if (resizedImage.base64) {
+      setPhotoBase64(`data:image/jpeg;base64,${resizedImage.base64}`);
+    }
+    return;
     // Both modules require a native dev build — not available in Expo Go.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let picker: any = null;

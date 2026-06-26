@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
@@ -48,6 +48,7 @@ type Props = { onGoSignUp: () => void; onGuestContinue?: () => void };
 
 export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const l = L[language];
 
   const [email, setEmail]       = useState('');
@@ -92,7 +93,10 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={[
+            s.scroll,
+            { paddingTop: Math.max(insets.top, 8) + 16 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

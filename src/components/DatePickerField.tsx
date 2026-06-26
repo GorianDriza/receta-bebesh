@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  DateTimePickerChangeEvent,
+} from '@react-native-community/datetimepicker';
 import { Text } from 'react-native-paper';
 
 type Props = {
@@ -34,21 +37,30 @@ export function DatePickerField({ label, value, onChange, language = 'sq-AL' }: 
   const isEmpty = !value;
   const doneLabel = language === 'sq-AL' ? 'Gati ✓' : 'Done ✓';
 
-  function handleChange(_event: DateTimePickerEvent, date?: Date) {
+  function handleValueChange(_event: DateTimePickerChangeEvent, date: Date) {
+    onChange(toYMD(date));
+  }
+
+  function openPicker() {
     if (Platform.OS === 'android') {
-      setOpen(false);
-      if (date) onChange(toYMD(date));
-    } else {
-      // iOS: update live as spinner scrolls
-      if (date) onChange(toYMD(date));
+      DateTimePickerAndroid.open({
+        value: toDate(value),
+        mode: 'date',
+        display: 'default',
+        maximumDate: new Date(),
+        onValueChange: handleValueChange,
+      });
+      return;
     }
+
+    setOpen((v) => !v);
   }
 
   return (
     <View style={s.wrapper}>
       <Text style={s.fieldLabel}>{label}</Text>
 
-      <Pressable style={s.input} onPress={() => setOpen((v) => !v)}>
+      <Pressable style={s.input} onPress={openPicker}>
         <Text style={[s.inputText, isEmpty && s.placeholder]}>
           {isEmpty
             ? (language === 'sq-AL' ? 'Zgjidh datën...' : 'Pick a date...')
@@ -56,17 +68,6 @@ export function DatePickerField({ label, value, onChange, language = 'sq-AL' }: 
         </Text>
         <Text style={s.calIcon}>{open ? '🔼' : '📅'}</Text>
       </Pressable>
-
-      {/* Android: native dialog */}
-      {Platform.OS === 'android' && open && (
-        <DateTimePicker
-          value={toDate(value)}
-          mode="date"
-          display="default"
-          maximumDate={new Date()}
-          onChange={handleChange}
-        />
-      )}
 
       {/* iOS: inline spinner below field */}
       {Platform.OS === 'ios' && open && (
@@ -76,7 +77,7 @@ export function DatePickerField({ label, value, onChange, language = 'sq-AL' }: 
             mode="date"
             display="spinner"
             maximumDate={new Date()}
-            onChange={handleChange}
+            onValueChange={handleValueChange}
             style={s.picker}
             textColor="#1A1714"
             locale={language === 'sq-AL' ? 'sq' : 'en'}

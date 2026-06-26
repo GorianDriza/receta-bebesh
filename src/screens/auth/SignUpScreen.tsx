@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
@@ -58,6 +58,7 @@ type Props = { onGoLogin: () => void; onGuestContinue?: () => void };
 
 export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
   const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const l = L[language];
 
   const [name, setName]               = useState('');
@@ -107,7 +108,11 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
       <View style={s.blob2} />
 
       {/* Back button */}
-      <Pressable style={s.backBtn} onPress={onGoLogin} hitSlop={8}>
+      <Pressable
+        style={[s.backBtn, { top: insets.top + 8 }]}
+        onPress={onGoLogin}
+        hitSlop={8}
+      >
         <Text style={s.backIcon}>←</Text>
       </Pressable>
 
@@ -116,7 +121,10 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={[
+            s.scroll,
+            { paddingTop: Math.max(insets.top, 8) + 40 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
