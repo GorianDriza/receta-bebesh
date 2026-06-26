@@ -21,6 +21,7 @@ import { useLanguage } from '../providers/LanguageProvider';
 import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
 import { FoodTrackerModal } from './FoodTrackerModal';
+import { GrowthTrackerModal } from './GrowthTrackerModal';
 
 const L = {
   'sq-AL': {
@@ -39,6 +40,7 @@ const L = {
     logoutNo: 'Anulo',
     email: 'Email',
     foodTracker: 'Ushqimet e Provuara',
+    growthTracker: 'Gjatësia & Pesha',
   },
   en: {
     title: 'Profile',
@@ -56,6 +58,7 @@ const L = {
     logoutNo: 'Cancel',
     email: 'Email',
     foodTracker: 'Foods Introduced',
+    growthTracker: 'Growth Tracker',
   },
 } as const;
 
@@ -112,6 +115,7 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
+  const [growthTrackerOpen, setGrowthTrackerOpen] = useState(false);
 
   // Sync fields each time modal opens or profile loads from cache/Firebase
   useEffect(() => {
@@ -323,6 +327,13 @@ export function ProfileModal({ visible, onClose }: Props) {
               <Text style={s.foodTrackerArrow}>›</Text>
             </Pressable>
 
+            {/* Growth Tracker */}
+            <Pressable style={[s.foodTrackerBtn, s.growthBtn]} onPress={() => setGrowthTrackerOpen(true)}>
+              <Text style={s.foodTrackerIcon}>📏</Text>
+              <Text style={[s.foodTrackerLabel, s.growthLabel]}>{L[language].growthTracker}</Text>
+              <Text style={s.foodTrackerArrow}>›</Text>
+            </Pressable>
+
             {/* Logout */}
             <Pressable style={s.logoutBtn} onPress={handleLogout}>
               <Text style={s.logoutLabel}>{l.logoutBtn}</Text>
@@ -332,6 +343,7 @@ export function ProfileModal({ visible, onClose }: Props) {
       </SafeAreaView>
       </SafeAreaProvider>
       <FoodTrackerModal visible={foodTrackerOpen} onClose={() => setFoodTrackerOpen(false)} />
+      <GrowthTrackerModal visible={growthTrackerOpen} onClose={() => setGrowthTrackerOpen(false)} />
     </Modal>
   );
 }
@@ -424,6 +436,9 @@ const s = StyleSheet.create({
   foodTrackerIcon: { fontSize: 22 },
   foodTrackerLabel: { flex: 1, fontSize: 16, fontWeight: '700', color: '#2A6B66' },
   foodTrackerArrow: { fontSize: 22, color: '#3AABA0', fontWeight: '300' },
+
+  growthBtn: { backgroundColor: '#F0EBFF' },
+  growthLabel: { color: '#5A3FA0' },
 
   logoutBtn: {
     backgroundColor: '#FFFFFF',
