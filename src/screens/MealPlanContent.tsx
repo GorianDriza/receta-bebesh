@@ -507,6 +507,11 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                     </View>
 
                     <View style={s.mealInfo}>
+                      {ageFilter === 'all' && (
+                        <View style={[s.stagePill, { backgroundColor: `${p.accent}CC` }]}>
+                          <Text style={s.stagePillText}>{recipe.ageStage}</Text>
+                        </View>
+                      )}
                       <Text style={s.mealTitle}>{recipe.title[language]}</Text>
                       <View style={s.mealMetaRow}>
                         {dur !== '' && (
@@ -649,7 +654,9 @@ const s = StyleSheet.create({
   mealActions:  { flexDirection: 'row', justifyContent: 'space-between' },
   actionBubble: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFFFFFE8', alignItems: 'center', justifyContent: 'center' },
   icon0:        { margin: 0 },
-  mealInfo:     { maxWidth: '58%', gap: 14 },
+  mealInfo:     { maxWidth: '58%', gap: 10 },
+  stagePill:    { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  stagePillText: { fontSize: 11, fontWeight: '800', color: '#1A1714' },
   mealTitle:    { fontSize: 23, lineHeight: 29, fontWeight: '800', letterSpacing: -0.8, color: '#111111' },
   mealMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 0 },
   durationPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FFF0', borderRadius: 999, paddingLeft: 6, paddingRight: 14, paddingVertical: 5 },
