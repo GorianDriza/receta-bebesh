@@ -68,6 +68,12 @@ module.exports = {
         projectId: 'fa366d8f-95d8-4576-bdc0-7343ecae41f6',
       },
     },
+    updates: {
+      url: 'https://u.expo.dev/fa366d8f-95d8-4576-bdc0-7343ecae41f6',
+    },
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
     scheme: 'com.driza.recetabebesh',
     plugins: [
       'expo-localization',
