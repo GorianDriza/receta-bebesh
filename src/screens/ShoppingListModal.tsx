@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -25,24 +25,87 @@ const L: Record<AppLanguage, {
   title: string;
   empty: string;
   clearChecked: string;
-  clearAll: string;
   addPlaceholder: string;
+  checked: string;
 }> = {
   'sq-AL': {
     title: 'Lista e Blerjes',
     empty: 'Lista është bosh. Shtoni përbërës nga recetat.',
     clearChecked: 'Fshi të kontrolluarat',
-    clearAll: 'Fshi të gjitha',
     addPlaceholder: 'Shto artikull...',
+    checked: 'Të kontrolluarat',
   },
   en: {
     title: 'Shopping List',
     empty: 'Your list is empty. Tap ingredients in any recipe to add them.',
     clearChecked: 'Clear checked',
-    clearAll: 'Clear all',
     addPlaceholder: 'Add item...',
+    checked: 'Checked',
   },
 };
+
+type Category = { id: string; emoji: string; sq: string; en: string };
+
+const CATEGORIES: Category[] = [
+  { id: 'produce',  emoji: '🥬', sq: 'Perime & Fruta', en: 'Produce' },
+  { id: 'dairy',    emoji: '🥛', sq: 'Bulmet',         en: 'Dairy'   },
+  { id: 'protein',  emoji: '🍗', sq: 'Proteinë',       en: 'Protein' },
+  { id: 'grains',   emoji: '🌾', sq: 'Drithëra',       en: 'Grains'  },
+  { id: 'pantry',   emoji: '🫙', sq: 'Pantrë',         en: 'Pantry'  },
+  { id: 'other',    emoji: '📦', sq: 'Tjetër',         en: 'Other'   },
+];
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  produce: [
+    'tomato', 'domate', 'apple', 'moll', 'banana', 'carrot', 'karot', 'potato', 'patate',
+    'zucchini', 'kungull', 'spinach', 'spinaq', 'broccoli', 'brokol', 'cauliflower', 'lulelak',
+    'avocado', 'cucumber', 'trangull', 'onion', 'qep', 'garlic', 'hudh', 'kale', 'pear', 'dardhë',
+    'mango', 'peach', 'pjeshk', 'plum', 'kumbull', 'pea', 'bizele', 'lemon', 'limon', 'lime',
+    'orange', 'portokall', 'strawberry', 'luleshtrydhe', 'berry', 'blueberry', 'mjedër', 'kiwi',
+    'grape', 'rrush', 'celery', 'selino', 'beet', 'panxhar', 'pepper', 'speca', 'pumpkin',
+    'squash', 'leek', 'presh', 'eggplant', 'patellxhan', 'fennel', 'merak', 'vegetabl',
+    'sweet potato', 'lettuce', 'marule', 'corn', 'misër', 'mushroom', 'kerpudhe', 'fruit',
+    'frut', 'pemë', 'perim', 'artichoke', 'asparagus',
+  ],
+  dairy: [
+    'milk', 'qumësht', 'yogurt', 'kos', 'cheese', 'djath', 'butter', 'gjalpë', 'cream', 'krem',
+    'ricotta', 'parmesan', 'cheddar', 'mozzarella', 'feta', 'whey', 'formula', 'cottage',
+    'dairy', 'bulmet', 'ghee', 'lactose',
+  ],
+  protein: [
+    'chicken', 'pulë', 'beef', 'viç', 'meat', 'mish', 'fish', 'peshk', 'salmon', 'tuna',
+    'sardine', 'cod', 'merluci', 'egg', 'vezë', 'tofu', 'lentil', 'thjerrëz', 'chickpea', 'qiqër',
+    'turkey', 'gjel', 'lamb', 'qingj', 'pork', 'derri', 'ham', 'proshutë', 'liver', 'mëlçi',
+    'shrimp', 'prawn', 'legum', 'bean', 'fasule', 'protein', 'proteinë',
+  ],
+  grains: [
+    'rice', 'oriz', 'pasta', 'oat', 'tërshërë', 'flour', 'miell', 'bread', 'bukë', 'cereal',
+    'quinoa', 'barley', 'elb', 'semolina', 'bollgur', 'couscous', 'noodle', 'spaghetti',
+    'macaroni', 'polenta', 'wheat', 'grurë', 'cracker', 'tortilla', 'pita', 'grain', 'drithë',
+    'muffin', 'pancake', 'drithëra',
+  ],
+  pantry: [
+    'oil', 'vaj', 'olive', 'ulliri', 'vinegar', 'uthull', 'sauce', 'salcë', 'honey', 'mjalt',
+    'sugar', 'sheqer', 'salt', 'kripë', 'cinnamon', 'kanellë', 'cumin', 'qimnon', 'spice',
+    'erëz', 'herb', 'thyme', 'trumzë', 'rosemary', 'rozmarinë', 'oregano', 'basil', 'borzilok',
+    'parsley', 'majdanoz', 'mint', 'nenexhek', 'ginger', 'xhenxhefil', 'turmeric', 'kurkumë',
+    'paprika', 'curry', 'vanilla', 'vanilj', 'baking', 'yeast', 'maja', 'stock', 'broth', 'supë',
+    'jam', 'reçel', 'syrup', 'shurup', 'mustard', 'ketchup', 'mayo', 'extract', 'powder', 'pluhur',
+    'cocoa', 'kakao', 'chocolate', 'çokollatë', 'nut', 'arr', 'almond', 'badam', 'walnut', 'lajthia',
+    'peanut', 'kikirik', 'sesame', 'susam',
+  ],
+};
+
+function categorize(text: string): string {
+  const norm = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      const normKw = kw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      if (norm.includes(normKw)) return catId;
+    }
+  }
+  return 'other';
+}
 
 type Props = { visible: boolean; onClose: () => void };
 
@@ -89,9 +152,17 @@ export function ShoppingListModal({ visible, onClose }: Props) {
   const checked   = items.filter((i) => i.checked);
   const hasChecked = checked.length > 0;
 
-  function renderItem({ item }: { item: ShoppingItem }) {
+  // Group unchecked items by category, preserving only non-empty groups
+  const groups: Array<{ cat: Category; items: ShoppingItem[] }> = CATEGORIES
+    .map((cat) => ({
+      cat,
+      items: unchecked.filter((item) => categorize(item.text) === cat.id),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  function renderItem(item: ShoppingItem) {
     return (
-      <Pressable style={s.row} onPress={() => handleToggle(item.id)}>
+      <Pressable key={item.id} style={s.row} onPress={() => handleToggle(item.id)}>
         <View style={[s.checkbox, item.checked && s.checkboxChecked]}>
           {item.checked && <Text style={s.checkmark}>✓</Text>}
         </View>
@@ -102,12 +173,6 @@ export function ShoppingListModal({ visible, onClose }: Props) {
       </Pressable>
     );
   }
-
-  const allItems: ShoppingItem[] = [
-    ...unchecked,
-    ...(checked.length > 0 ? [{ id: '__divider__', text: '', checked: false, addedAt: 0 }] : []),
-    ...checked,
-  ];
 
   return (
     <Modal
@@ -151,18 +216,36 @@ export function ShoppingListModal({ visible, onClose }: Props) {
               <Text style={s.emptyText}>{labels.empty}</Text>
             </View>
           ) : (
-            <FlatList
-              data={allItems}
-              keyExtractor={(item) => item.id}
+            <ScrollView
               contentContainerStyle={s.list}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
-                if (item.id === '__divider__') {
-                  return <View style={s.divider} />;
-                }
-                return renderItem({ item });
-              }}
-            />
+            >
+              {/* Grouped unchecked items */}
+              {groups.map(({ cat, items: catItems }) => (
+                <View key={cat.id} style={s.section}>
+                  <View style={s.sectionHeader}>
+                    <Text style={s.sectionEmoji}>{cat.emoji}</Text>
+                    <Text style={s.sectionLabel}>
+                      {language === 'sq-AL' ? cat.sq : cat.en}
+                    </Text>
+                    <Text style={s.sectionCount}>{catItems.length}</Text>
+                  </View>
+                  {catItems.map((item) => renderItem(item))}
+                </View>
+              ))}
+
+              {/* Flat checked section */}
+              {hasChecked && (
+                <View style={s.section}>
+                  <View style={s.sectionHeader}>
+                    <Text style={s.sectionEmoji}>✓</Text>
+                    <Text style={[s.sectionLabel, s.sectionLabelDone]}>{labels.checked}</Text>
+                    <Text style={s.sectionCount}>{checked.length}</Text>
+                  </View>
+                  {checked.map((item) => renderItem(item))}
+                </View>
+              )}
+            </ScrollView>
           )}
 
           {hasChecked && (
@@ -191,12 +274,22 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, color: '#1A1714' },
   icon0: { margin: 0 },
-  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 },
+  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 4 },
+  section: { marginBottom: 8 },
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingTop: 12, paddingBottom: 4, paddingHorizontal: 4,
+  },
+  sectionEmoji: { fontSize: 16 },
+  sectionLabel: { fontSize: 13, fontWeight: '800', color: '#6E6580', textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 },
+  sectionLabelDone: { color: '#B0ABB8' },
+  sectionCount: { fontSize: 12, fontWeight: '700', color: '#B0ABB8' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F3FA',
   },
@@ -214,7 +307,6 @@ const s = StyleSheet.create({
   rowText: { flex: 1, fontSize: 15, lineHeight: 22, color: '#1A1714' },
   rowTextDone: { color: '#AAA', textDecorationLine: 'line-through' },
   removeX: { fontSize: 22, color: '#C4BFD8', fontWeight: '300', lineHeight: 24 },
-  divider: { height: 12 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 12 },
   emptyIcon: { fontSize: 56 },
   emptyText: { fontSize: 15, lineHeight: 22, color: '#9E99B2', textAlign: 'center' },
