@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from 'react-native-paper';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
+import { getFirebaseConfigErrorMessage, isFirebaseConfigured } from '../../lib/firebase';
 import { createUserProfile } from '../../lib/users';
 import { DatePickerField } from '../../components/DatePickerField';
 import { useLanguage } from '../../providers/LanguageProvider';
@@ -60,6 +61,7 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
   const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const l = L[language];
+  const firebaseConfigError = getFirebaseConfigErrorMessage();
 
   const [name, setName]               = useState('');
   const [babyName, setBabyName]       = useState('');
@@ -71,7 +73,10 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
   const [error, setError]             = useState<string | null>(null);
 
   async function handleSignUp() {
-    if (!firebaseAuth) return;
+    if (!firebaseAuth) {
+      setError(firebaseConfigError);
+      return;
+    }
     if (!name.trim()) { setError(l.nameMissing); return; }
     if (!email.trim()) { setError(l.emailMissing); return; }
     if (password.length < 6) { setError(l.passMissing); return; }
@@ -189,12 +194,13 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
               />
             </View>
 
+            {!isFirebaseConfigured && <Text style={s.error}>{firebaseConfigError}</Text>}
             {error != null && <Text style={s.error}>{error}</Text>}
 
             <Pressable
               style={[s.btn, loading && s.btnDisabled]}
               onPress={handleSignUp}
-              disabled={loading}
+              disabled={loading || !firebaseAuth}
             >
               <Text style={s.btnLabel}>{loading ? '...' : l.createBtn}</Text>
             </Pressable>

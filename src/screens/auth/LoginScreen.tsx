@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from 'react-native-paper';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
+import { getFirebaseConfigErrorMessage, isFirebaseConfigured } from '../../lib/firebase';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { AuthInput } from './AuthInput';
 
@@ -50,6 +51,7 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const l = L[language];
+  const firebaseConfigError = getFirebaseConfigErrorMessage();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +61,10 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [showPass, setShowPass] = useState(false);
 
   async function handleLogin() {
-    if (!firebaseAuth) return;
+    if (!firebaseAuth) {
+      setError(firebaseConfigError);
+      return;
+    }
     setLoading(true);
     setError(null);
     setResetMsg(null);
@@ -73,7 +78,10 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   }
 
   async function handleForgotPassword() {
-    if (!firebaseAuth) return;
+    if (!firebaseAuth) {
+      setError(firebaseConfigError);
+      return;
+    }
     if (!email.trim()) { setError(l.enterEmailFirst); return; }
     try {
       await sendPasswordResetEmail(firebaseAuth, email.trim());
@@ -140,18 +148,19 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
               />
             </View>
 
+            {!isFirebaseConfigured && <Text style={s.error}>{firebaseConfigError}</Text>}
             {error != null   && <Text style={s.error}>{error}</Text>}
             {resetMsg != null && <Text style={s.success}>{resetMsg}</Text>}
 
             <Pressable
               style={[s.btn, loading && s.btnDisabled]}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loading || !firebaseAuth}
             >
               <Text style={s.btnLabel}>{loading ? '...' : l.loginBtn}</Text>
             </Pressable>
 
-            <Pressable onPress={handleForgotPassword} hitSlop={8}>
+            <Pressable onPress={handleForgotPassword} hitSlop={8} disabled={!firebaseAuth}>
               <Text style={s.forgotLink}>{l.forgot}</Text>
             </Pressable>
           </View>

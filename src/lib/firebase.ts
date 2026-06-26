@@ -39,6 +39,14 @@ export const missingFirebaseKeys = requiredKeys.filter(
 
 export const isFirebaseConfigured = missingFirebaseKeys.length === 0;
 
+export function getFirebaseConfigErrorMessage(): string {
+  if (isFirebaseConfigured) {
+    return '';
+  }
+
+  return `Firebase config missing: ${missingFirebaseKeys.join(', ')}`;
+}
+
 const firebaseConfig: FirebaseConfig | null = isFirebaseConfigured
   ? {
       apiKey: rawFirebaseConfig.apiKey!,
