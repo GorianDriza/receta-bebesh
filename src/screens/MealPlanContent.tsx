@@ -12,6 +12,7 @@ import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../
 import { getAllRatings } from '../lib/ratings';
 import { getReactionTerms } from '../lib/foodTracker';
 import { computeAgeStage } from '../lib/users';
+import { AIPlanModal } from './AIPlanModal';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
@@ -60,6 +61,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [reactionTerms, setReactionTerms] = useState<string[]>([]);
   const [reactionCount, setReactionCount] = useState(0);
   const [hideAllergens, setHideAllergens] = useState(false);
+  const [aiPlanOpen, setAiPlanOpen]       = useState(false);
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -173,6 +175,13 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       return `${bn} · ${age}`;
     }
     return null;
+  })();
+
+  const babyAgeMonths = (() => {
+    const bd = userProfile?.babyBirthdate;
+    if (!bd) return 6;
+    const birth = new Date(bd);
+    return (new Date().getFullYear() - birth.getFullYear()) * 12 + (new Date().getMonth() - birth.getMonth());
   })();
 
   const FILTERS: Array<{ id: FilterId; label: string }> = [
@@ -310,13 +319,20 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               </Text>
             )}
           </View>
-          <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
-            <Text style={s.seeAll}>
-              {showAll
-                ? (language === 'sq-AL' ? 'Më pak' : 'Less')
-                : t[language].common.seeAll}
-            </Text>
-          </Pressable>
+          <View style={s.sectionActions}>
+            {recipes.length > 0 && (
+              <Pressable style={s.aiBtn} onPress={() => setAiPlanOpen(true)} hitSlop={8}>
+                <Text style={s.aiBtnLabel}>✨ AI</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={8}>
+              <Text style={s.seeAll}>
+                {showAll
+                  ? (language === 'sq-AL' ? 'Më pak' : 'Less')
+                  : t[language].common.seeAll}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* ── Search bar ── */}
@@ -512,6 +528,12 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           onClose={() => setPlannerRecipe(null)}
         />
       )}
+      <AIPlanModal
+        visible={aiPlanOpen}
+        onClose={() => setAiPlanOpen(false)}
+        recipes={recipes}
+        babyAgeMonths={babyAgeMonths}
+      />
     </>
   );
 }
@@ -556,6 +578,9 @@ const s = StyleSheet.create({
   snackEmoji:    { fontSize: 18 },
 
   sectionRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  aiBtn: { borderRadius: 999, backgroundColor: '#EDE8FF', paddingHorizontal: 14, paddingVertical: 8 },
+  aiBtnLabel: { fontSize: 14, fontWeight: '800', color: '#6A42D8' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
   cacheHint:     { fontSize: 12, color: '#B0A9A3', marginTop: 2 },
