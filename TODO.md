@@ -16,24 +16,25 @@
 - [x] Login redirect for guest actions (heart, +, planner slots)
 
 ### Short-term (next sessions)
-- [ ] **Baby food intro tracker** — checklist of foods baby has tried; mark allergies / reactions; filter recipes by "already introduced" ingredients
-- [ ] **Shopping list** — tap ingredient → add to running list; dedicated view with checkboxes and "clear done" action
-- [ ] **Cooking mode** — full-screen step-by-step; large text; `expo-keep-awake` keeps screen on while cooking
-- [ ] **Personal recipe notes + star rating** — 1-5 stars + free-text note per recipe per user; shown on card
-- [ ] **Baby growth milestones banner** — age-aware callout ("At 6m: start purees!") that rotates weekly
+- [x] **Baby food intro tracker** — checklist of foods baby has tried; mark allergies / reactions; filter recipes by "already introduced" ingredients
+- [x] **Shopping list** — tap ingredient to add; "Add all" button; dedicated view with checkboxes and "clear checked" action; accessible from recipe detail and main header
+- [x] **Cooking mode** — full-screen step-by-step; large text; `expo-keep-awake` keeps screen on while cooking
+- [x] **Personal recipe notes + star rating** — 1-5 stars + free-text note per recipe per user; shown on card
+- [x] **Baby growth milestones banner** — age-aware callout ("At 6m: start purees!") that rotates weekly
 
 ### Mid-term
-- [ ] **Meal history calendar** — log "cooked on date"; calendar heat-map; streak counter
+- [x] **Meal history / cook log** — Journal tab shows today's planned meals; ○ toggle marks each meal as cooked
+- [x] **Recipe sharing** — share recipe via system sheet (title + source URL)
+- [x] **Offline mode** — cache recipes in AsyncStorage; "Loaded from cache" indicator
+- [x] **Allergy-aware filter** — food tracker marks reactions; "🚫 Hide allergens" chip filters recipes
+- [ ] **Meal history calendar** — calendar heat-map view; streak counter
 - [ ] **Multiple baby profiles** — support for siblings; switcher in header
-- [ ] **Recipe sharing** — share card as image or deep-link via `expo-sharing`
 - [ ] **Nutrition info display** — calories / protein / iron / vitamin per recipe
-- [ ] **Offline mode** — cache recipes in AsyncStorage; stale indicator when offline
 - [ ] **Community meal photos** — users submit their prepared-meal photo; carousel on recipe detail
 
 ### Long-term / Nice-to-have
 - [ ] **Weight & height tracker** — log measurements; chart with `react-native-svg`
 - [ ] **AI weekly plan** — Gemini generates 7-day plan from age + favourites
-- [ ] **Allergy-aware filter** — mark allergens (nuts, egg, dairy…); hide matching recipes
 - [ ] **Voice step-by-step** — read recipe aloud in Albanian or English via TTS
 - [ ] **Apple / Google Sign-In** — needs EAS dev build (`eas build --profile development`)
 - [ ] **Firebase Storage photos** — upgrade to Blaze; full-res avatars + recipe images in Cloud Storage

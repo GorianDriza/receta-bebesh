@@ -10,6 +10,7 @@ import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../lib/recipes';
 import { getAllRatings } from '../lib/ratings';
+import { getReactionTerms } from '../lib/foodTracker';
 import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
@@ -56,6 +57,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [searchQuery, setSearchQuery] = useState('');
   const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
   const [ratingsMap, setRatingsMap]   = useState<Record<string, number>>({});
+  const [reactionTerms, setReactionTerms] = useState<string[]>([]);
+  const [reactionCount, setReactionCount] = useState(0);
+  const [hideAllergens, setHideAllergens] = useState(false);
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -99,6 +103,13 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    getReactionTerms().then(({ terms, count }) => {
+      setReactionTerms(terms);
+      setReactionCount(count);
+    }).catch(() => {});
+  }, []);
+
   async function toggleFavourite(recipe: RecipeRecord) {
     if (!user) { onLoginRequired?.(); return; }
     const isFav = favouriteIds.has(recipe.id);
@@ -135,8 +146,17 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((r) => r.title[language].toLowerCase().includes(q));
     }
+    if (hideAllergens && reactionTerms.length > 0) {
+      filtered = filtered.filter((r) => {
+        const allText = [
+          ...(r.ingredients?.['sq-AL'] ?? []),
+          ...(r.ingredients?.en ?? []),
+        ].map((s) => s.toLowerCase()).join(' ');
+        return !reactionTerms.some((term) => allText.includes(term));
+      });
+    }
     return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, mealFilter, favouriteIds, searchQuery, language, showAll]);
+  }, [recipes, ageFilter, mealFilter, favouriteIds, searchQuery, language, showAll, hideAllergens, reactionTerms]);
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -346,6 +366,20 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           ))}
         </ScrollView>
 
+        {/* ── Allergen filter toggle ── */}
+        {reactionCount > 0 && (
+          <Pressable
+            style={[s.allergenChip, hideAllergens && s.allergenChipOn]}
+            onPress={() => { setHideAllergens((v) => !v); setShowAll(false); }}
+          >
+            <Text style={[s.allergenChipText, hideAllergens && s.allergenChipTextOn]}>
+              {hideAllergens
+                ? (language === 'sq-AL' ? `🚫 Duke fshehur ${reactionCount} alergjene` : `🚫 Hiding ${reactionCount} allergen${reactionCount > 1 ? 's' : ''}`)
+                : (language === 'sq-AL' ? `🚫 Fshih alergjenët (${reactionCount})` : `🚫 Hide allergens (${reactionCount})`)}
+            </Text>
+          </Pressable>
+        )}
+
         {/* ── States ── */}
         {loading && (
           <View style={s.cardStack}>
@@ -467,6 +501,10 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           for (const [id, r] of Object.entries(map)) stars[id] = r.stars;
           setRatingsMap(stars);
         }).catch(() => {});
+        getReactionTerms().then(({ terms, count }) => {
+          setReactionTerms(terms);
+          setReactionCount(count);
+        }).catch(() => {});
       }} />
       {plannerRecipe != null && (
         <PlannerPickerSheet
@@ -562,6 +600,15 @@ const s = StyleSheet.create({
   ratingPill: { alignSelf: 'flex-start', backgroundColor: '#FFF8E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
+
+  allergenChip: {
+    alignSelf: 'flex-start', borderRadius: 999,
+    backgroundColor: '#FFE9E9', paddingHorizontal: 18, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#FFB3B3',
+  },
+  allergenChipOn: { backgroundColor: '#FF5A5A', borderColor: '#FF5A5A' },
+  allergenChipText: { fontSize: 14, fontWeight: '700', color: '#C42020' },
+  allergenChipTextOn: { color: '#FFFFFF' },
 
   platePos:    { position: 'absolute', right: 18, bottom: 16 },
   plateShadow: { position: 'absolute', top: 8, left: 8, width: 126, height: 126, borderRadius: 63, backgroundColor: '#00000018' },

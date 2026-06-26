@@ -86,6 +86,21 @@ export async function getFoodTracker(): Promise<FoodTrackerMap> {
   return loadAll();
 }
 
+export async function getReactionTerms(): Promise<{ terms: string[]; count: number }> {
+  const map = await loadAll();
+  const terms: string[] = [];
+  let count = 0;
+  for (const cat of FOOD_CATEGORIES) {
+    for (const item of cat.items) {
+      if (map[item.id]?.status === 'reaction') {
+        terms.push(item.sq.toLowerCase(), item.en.toLowerCase());
+        count++;
+      }
+    }
+  }
+  return { terms, count };
+}
+
 export async function setFoodStatus(foodId: string, status: FoodStatus): Promise<void> {
   const map = await loadAll();
   if (status === 'untried') {
