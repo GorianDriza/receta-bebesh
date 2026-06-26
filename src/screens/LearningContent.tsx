@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 
 import { AppLanguage } from '../i18n/translations';
@@ -282,11 +282,18 @@ const CARDS: Card[] = [
 export function LearningContent() {
   const { language } = useLanguage();
   const [selectedTopic, setSelectedTopic] = useState<TopicKey>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const visible = useMemo(
-    () => selectedTopic === 'all' ? CARDS : CARDS.filter((c) => c.topic === selectedTopic),
-    [selectedTopic],
-  );
+  const visible = useMemo(() => {
+    let cards = selectedTopic === 'all' ? CARDS : CARDS.filter((c) => c.topic === selectedTopic);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      cards = cards.filter(
+        (c) => c.title[language].toLowerCase().includes(q) || c.excerpt[language].toLowerCase().includes(q),
+      );
+    }
+    return cards;
+  }, [selectedTopic, searchQuery, language]);
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
@@ -308,6 +315,29 @@ export function LearningContent() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* Search */}
+      <View style={s.searchBar}>
+        <Text style={s.searchIcon}>🔍</Text>
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={language === 'sq-AL' ? 'Kërko...' : 'Search...'}
+          placeholderTextColor="#B0A9A3"
+          style={s.searchInput}
+        />
+        {searchQuery !== '' && (
+          <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+            <Text style={s.searchClear}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {visible.length === 0 && (
+        <Text style={s.emptyText}>
+          {language === 'sq-AL' ? 'Nuk ka rezultate.' : 'No results.'}
+        </Text>
+      )}
 
       {/* Cards */}
       <View style={s.cardList}>
@@ -350,6 +380,12 @@ const s = StyleSheet.create({
   chipOn:     { backgroundColor: '#111111' },
   chipText:   { fontSize: 14, fontWeight: '700', color: '#1E1B2F' },
   chipTextOn: { color: '#FFFFFF' },
+
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFFD9', borderRadius: 18, paddingHorizontal: 16, height: 48, gap: 10 },
+  searchIcon: { fontSize: 15 },
+  searchInput: { flex: 1, fontSize: 15, color: '#1A1714' },
+  searchClear: { fontSize: 14, color: '#9E9590', paddingLeft: 8 },
+  emptyText: { textAlign: 'center', color: '#9E9590', fontSize: 15, paddingVertical: 16 },
 
   cardList: { gap: 14 },
   card: {
