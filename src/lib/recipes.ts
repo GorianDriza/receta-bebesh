@@ -79,6 +79,17 @@ export type RecipeTranslation = {
   reviewedBy: string | null;
 };
 
+export type RecipeNutrition = {
+  kcal?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
+  fiberG?: number;
+  ironMg?: number;
+  calciumMg?: number;
+  vitaminCMg?: number;
+};
+
 export type RecipeRecord = {
   id: string;
   slug: string;
@@ -95,6 +106,7 @@ export type RecipeRecord = {
   image: RecipeImage;
   source: RecipeSource;
   translation: RecipeTranslation;
+  nutrition?: RecipeNutrition;
   createdAt: string;
   updatedAt: string;
 };

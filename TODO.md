@@ -29,7 +29,7 @@
 - [x] **Allergy-aware filter** — food tracker marks reactions; "🚫 Hide allergens" chip filters recipes
 - [ ] **Meal history calendar** — calendar heat-map view; streak counter
 - [ ] **Multiple baby profiles** — support for siblings; switcher in header
-- [ ] **Nutrition info display** — calories / protein / iron / vitamin per recipe
+- [x] **Nutrition info display** — calories / protein / iron / vitamin per recipe
 - [ ] **Community meal photos** — users submit their prepared-meal photo; carousel on recipe detail
 
 ### Long-term / Nice-to-have

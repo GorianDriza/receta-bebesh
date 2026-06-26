@@ -7,7 +7,7 @@ import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { CookingModeModal } from './CookingModeModal';
 import { ShoppingListModal } from './ShoppingListModal';
 import { AppLanguage } from '../i18n/translations';
-import { RecipeRecord } from '../lib/recipes';
+import { RecipeRecord, RecipeNutrition } from '../lib/recipes';
 import { addShoppingItem } from '../lib/shoppingList';
 import { getRating, setRating } from '../lib/ratings';
 import { useAuth } from '../providers/AuthProvider';
@@ -18,7 +18,9 @@ const LABELS: Record<AppLanguage, {
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
   addAllToList: string; itemAdded: string; viewList: string;
   startCooking: string; ratingTitle: string; notePlaceholder: string; noteSaved: string;
-  share: string;
+  share: string; nutrition: string; nutritionNA: string;
+  kcal: string; protein: string; carbs: string; fat: string; fiber: string;
+  iron: string; calcium: string; vitC: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
@@ -28,6 +30,9 @@ const LABELS: Record<AppLanguage, {
     viewList: 'Shiko listën', startCooking: '👨‍🍳 Fillo gatimin',
     ratingTitle: 'Vlerësimi juaj', notePlaceholder: 'Shënime (opsionale)...', noteSaved: '✓ Ruajtur',
     share: 'Ndaj',
+    nutrition: 'Vlerat Ushqyese', nutritionNA: 'Vlerat ushqyese nuk janë disponueshme',
+    kcal: 'kcal', protein: 'Proteina', carbs: 'Karboh.', fat: 'Yndyrna',
+    fiber: 'Fibra', iron: 'Hekur', calcium: 'Kalcium', vitC: 'Vit. C',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
@@ -37,8 +42,25 @@ const LABELS: Record<AppLanguage, {
     viewList: 'View list', startCooking: '👨‍🍳 Start Cooking',
     ratingTitle: 'Your rating', notePlaceholder: 'Notes (optional)...', noteSaved: '✓ Saved',
     share: 'Share',
+    nutrition: 'Nutrition', nutritionNA: 'Nutrition info not available',
+    kcal: 'kcal', protein: 'Protein', carbs: 'Carbs', fat: 'Fat',
+    fiber: 'Fiber', iron: 'Iron', calcium: 'Calcium', vitC: 'Vit. C',
   },
 };
+
+type NutrientTile = { key: string; label: string; unit: string; color: string; emoji: string };
+function getNutrientTiles(L: (typeof LABELS)[AppLanguage]): NutrientTile[] {
+  return [
+    { key: 'kcal',      label: L.kcal,    unit: '',    color: '#FF8C1A', emoji: '🔥' },
+    { key: 'proteinG',  label: L.protein, unit: 'g',   color: '#6ECAC0', emoji: '💪' },
+    { key: 'carbsG',    label: L.carbs,   unit: 'g',   color: '#FFB800', emoji: '🌾' },
+    { key: 'fatG',      label: L.fat,     unit: 'g',   color: '#F4A62C', emoji: '🫙' },
+    { key: 'fiberG',    label: L.fiber,   unit: 'g',   color: '#3AAB72', emoji: '🥦' },
+    { key: 'ironMg',    label: L.iron,    unit: 'mg',  color: '#E05252', emoji: '🩸' },
+    { key: 'calciumMg', label: L.calcium, unit: 'mg',  color: '#A88BEB', emoji: '🦴' },
+    { key: 'vitaminCMg',label: L.vitC,    unit: 'mg',  color: '#FF6B35', emoji: '🍊' },
+  ];
+}
 
 type Props = { recipe: RecipeRecord | null; onClose: () => void };
 
@@ -174,6 +196,30 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
             {recipe?.summary[language] ? (
               <Text style={s.summary}>{recipe.summary[language]}</Text>
             ) : null}
+
+            <View style={s.divider} />
+
+            {/* Nutrition */}
+            <Text style={s.sectionHeading}>{L.nutrition}</Text>
+            {recipe?.nutrition ? (
+              <View style={s.nutriGrid}>
+                {getNutrientTiles(L).map(({ key, label, unit, color, emoji }) => {
+                  const val = (recipe.nutrition as unknown as Record<string, number | undefined>)?.[key];
+                  if (val == null) return null;
+                  return (
+                    <View key={key} style={s.nutriTile}>
+                      <Text style={s.nutriEmoji}>{emoji}</Text>
+                      <Text style={[s.nutriVal, { color }]}>{val}{unit}</Text>
+                      <Text style={s.nutriLabel}>{label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={s.nutriNA}>
+                <Text style={s.nutriNAText}>{L.nutritionNA}</Text>
+              </View>
+            )}
 
             <View style={s.divider} />
 
@@ -364,6 +410,23 @@ const s = StyleSheet.create({
     letterSpacing: -0.4,
     color: '#1A1714',
   },
+
+  // Nutrition
+  nutriGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  nutriTile: {
+    width: '22%', minWidth: 72,
+    backgroundColor: '#F7F7FB', borderRadius: 16,
+    padding: 10, alignItems: 'center', gap: 3,
+  },
+  nutriEmoji: { fontSize: 18 },
+  nutriVal: { fontSize: 15, fontWeight: '800' },
+  nutriLabel: { fontSize: 10, fontWeight: '600', color: '#6E6560', textAlign: 'center' },
+  nutriNA: {
+    backgroundColor: '#F7F7FB', borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 10,
+    alignItems: 'center',
+  },
+  nutriNAText: { fontSize: 13, color: '#B0ABB8', fontStyle: 'italic' },
 
   // Ingredients
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
