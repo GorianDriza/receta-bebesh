@@ -517,6 +517,17 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           )}
         </View>
 
+        {/* ── Result count ── */}
+        {(searchQuery.trim() || ageFilter !== 'all' || mealFilter !== 'any' || timeFilter !== 'any' || diffFilter !== 'any') && (
+          <Text style={s.resultCount}>
+            {displayed.length === 0
+              ? (language === 'sq-AL' ? 'Asnjë recetë e gjetur' : 'No recipes found')
+              : (language === 'sq-AL'
+                ? `${showAll ? displayed.length : Math.min(displayed.length, 5)} nga ${displayed.length} receta`
+                : `${showAll ? displayed.length : Math.min(displayed.length, 5)} of ${displayed.length} recipes`)}
+          </Text>
+        )}
+
         {/* ── Age filter chips ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
           {FILTERS.map((f) => (
@@ -804,6 +815,8 @@ const s = StyleSheet.create({
   recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
   cacheHint:     { fontSize: 12, color: '#B0A9A3', marginTop: 2 },
   seeAll:        { fontSize: 18, color: '#6A6475' },
+
+  resultCount: { fontSize: 13, color: '#9E9590', fontWeight: '600', paddingLeft: 2 },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
