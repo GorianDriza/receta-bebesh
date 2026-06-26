@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 
 import { AppLanguage } from '../i18n/translations';
@@ -26,6 +26,7 @@ const TOPICS: Array<{ key: TopicKey; sq: string; en: string }> = [
 ];
 
 const CARDS: Card[] = [
+  // ── First Foods ───────────────────────────────────────────────────────────
   {
     id: 'spoon',
     topic: 'firstfoods',
@@ -53,6 +54,59 @@ const CARDS: Card[] = [
     badge: '4m', bg: '#FFF39D', ring: '#F4E15F',
   },
   {
+    id: 'blw',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Ushqyerja e drejtuar nga bebja (BLW)',
+      en:      'Baby-led weaning (BLW)',
+    },
+    excerpt: {
+      'sq-AL': 'Jepuni bebës copa të buta në vend të pure — nxit pavarësinë dhe shijet.',
+      en:      'Offer soft finger pieces instead of purée — builds independence and taste.',
+    },
+    badge: 'BLW', bg: '#CFFFD6', ring: '#98E8AA',
+  },
+  {
+    id: 'finger6',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Ushqimet me gishta nga 6 muajt',
+      en:      'Finger foods from 6 months',
+    },
+    excerpt: {
+      'sq-AL': 'Karotë e zier, bananet e pjekur, avokado — të buta dhe pa rrezik mbytjeje.',
+      en:      'Steamed carrot, ripe banana, avocado — soft, low choking risk foods.',
+    },
+    badge: '👆', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'water',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Kur të filloni ujin',
+      en:      'When to introduce water',
+    },
+    excerpt: {
+      'sq-AL': 'Uji mund të ofrohet nga 6 muajt kur beba ha ushqime të ngurta.',
+      en:      'Small sips of water can start at 6 months once solid foods begin.',
+    },
+    badge: '💧', bg: '#D4F0FF', ring: '#94D8FF',
+  },
+  {
+    id: 'grains',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Drithërat dhe cerealet',
+      en:      'Grains and cereals',
+    },
+    excerpt: {
+      'sq-AL': 'Orizin, tërbithë dhe misrin mund t’i shtoni nga 6 muajt si pure ose qull.',
+      en:      'Rice, oats, and corn can be introduced from 6 months as porridge or mash.',
+    },
+    badge: '🌾', bg: '#CABEFF', ring: '#A68DFF',
+  },
+  // ── Nutrition ──────────────────────────────────────────────────────────────
+  {
     id: 'iron',
     topic: 'nutrition',
     title: {
@@ -64,19 +118,6 @@ const CARDS: Card[] = [
       en:      'Babies deplete maternal iron after 6 months. Learn how to replenish.',
     },
     badge: 'Fe', bg: '#CFFFD6', ring: '#98E8AA',
-  },
-  {
-    id: 'allergens',
-    topic: 'allergies',
-    title: {
-      'sq-AL': 'Ushqimet alergjike — çfarë duhet të dini',
-      en:      'Allergenic foods — what you need to know',
-    },
-    excerpt: {
-      'sq-AL': 'Njëra nga zakonet e reja: futni alergjenët herët për të zvogëluar rrezikun.',
-      en:      'New guidance: introduce allergens early to reduce allergy risk.',
-    },
-    badge: 'A!', bg: '#FFD9AE', ring: '#FFC681',
   },
   {
     id: 'variety',
@@ -92,6 +133,99 @@ const CARDS: Card[] = [
     badge: '🌈', bg: '#D4F0FF', ring: '#94D8FF',
   },
   {
+    id: 'omega3',
+    topic: 'nutrition',
+    title: {
+      'sq-AL': 'Acidet yndyrore Omega-3 për trurin',
+      en:      'Omega-3 fatty acids for brain growth',
+    },
+    excerpt: {
+      'sq-AL': 'Peshku si salmoni, sardelet dhe luleshtrydhet janë burime të mira DHA.',
+      en:      'Salmon, sardines, and walnuts are great DHA sources for developing brains.',
+    },
+    badge: 'Ω3', bg: '#FFF39D', ring: '#F4E15F',
+  },
+  {
+    id: 'calcium',
+    topic: 'nutrition',
+    title: {
+      'sq-AL': 'Kalciumi dhe kockat e forta',
+      en:      'Calcium for strong bones',
+    },
+    excerpt: {
+      'sq-AL': 'Gjalpi, kosi dhe djathi janë burime kalciumi pas vitit të parë.',
+      en:      'Yoghurt, cheese, and dairy provide calcium after the first year.',
+    },
+    badge: 'Ca', bg: '#F0CBFF', ring: '#D494FF',
+  },
+  {
+    id: 'vitamin_d',
+    topic: 'nutrition',
+    title: {
+      'sq-AL': 'Vitamina D — pse është e domosdoshme',
+      en:      'Vitamin D — why it is essential',
+    },
+    excerpt: {
+      'sq-AL': 'Shumë fëmijë kanë nevojë për suplemente Vit D, sidomos gjatë dimrit.',
+      en:      'Many babies need a Vit D supplement, especially in winter months.',
+    },
+    badge: 'D☀', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  // ── Allergies ──────────────────────────────────────────────────────────────
+  {
+    id: 'allergens',
+    topic: 'allergies',
+    title: {
+      'sq-AL': 'Ushqimet alergjike — çfarë duhet të dini',
+      en:      'Allergenic foods — what you need to know',
+    },
+    excerpt: {
+      'sq-AL': 'Njëra nga zakonet e reja: futni alergjenët herët për të zvogëluar rrezikun.',
+      en:      'New guidance: introduce allergens early to reduce allergy risk.',
+    },
+    badge: 'A!', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'big8',
+    topic: 'allergies',
+    title: {
+      'sq-AL': '8 alergjenët kryesorë',
+      en:      'The 8 major allergens',
+    },
+    excerpt: {
+      'sq-AL': 'Qumështi, vezët, kikiriku, arrat, soja, gruri, peshku, gaforrja.',
+      en:      'Milk, eggs, peanuts, tree nuts, soy, wheat, fish, shellfish.',
+    },
+    badge: '×8', bg: '#CFFFD6', ring: '#98E8AA',
+  },
+  {
+    id: 'reaction',
+    topic: 'allergies',
+    title: {
+      'sq-AL': 'Shenjat e reagimit alergjik',
+      en:      'Signs of an allergic reaction',
+    },
+    excerpt: {
+      'sq-AL': 'Kruajtja, ënjtja e buzëve, kollitja ose të vjellat — njohni shenjat herët.',
+      en:      'Hives, lip swelling, coughing, or vomiting — recognize the signs early.',
+    },
+    badge: '⚠', bg: '#CABEFF', ring: '#A68DFF',
+  },
+  {
+    id: 'introduce_timing',
+    topic: 'allergies',
+    title: {
+      'sq-AL': 'Koha e duhur për futjen e alergjenëve',
+      en:      'Right timing for allergen introduction',
+    },
+    excerpt: {
+      'sq-AL': 'Fëmijët me ekzemë kanë rrezik më të lartë — konsultohuni me mjekun.',
+      en:      'Babies with eczema are higher risk — consult your doctor before introducing.',
+    },
+    badge: '⏱', bg: '#FFF39D', ring: '#F4E15F',
+  },
+  // ── Tips ──────────────────────────────────────────────────────────────────
+  {
     id: 'texture',
     topic: 'tips',
     title: {
@@ -103,6 +237,45 @@ const CARDS: Card[] = [
       en:      'Around 8 months babies are ready for slightly thicker textures.',
     },
     badge: 'TX', bg: '#F0CBFF', ring: '#D494FF',
+  },
+  {
+    id: 'gagging',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Ngjirja vs mbytja — ndryshimi',
+      en:      'Gagging vs choking — the difference',
+    },
+    excerpt: {
+      'sq-AL': 'Ngjirja është normale dhe mbrojtëse; mbytja është e heshtur dhe e rrezikshme.',
+      en:      'Gagging is normal and protective; choking is silent and needs action.',
+    },
+    badge: '!', bg: '#D4F0FF', ring: '#94D8FF',
+  },
+  {
+    id: 'refuses',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Kur bebja refuzon ushqimin',
+      en:      'When baby refuses food',
+    },
+    excerpt: {
+      'sq-AL': 'Refuzimi është normal. Riofrojeni ushqimin pas 2–3 ditësh pa presion.',
+      en:      'Refusal is normal. Re-offer the food after 2–3 days without pressure.',
+    },
+    badge: '🙅', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'batch',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Gatimi në sasi të mëdha dhe ngrirja',
+      en:      'Batch cooking and freezing',
+    },
+    excerpt: {
+      'sq-AL': 'Ngrini pure në kubikë akulli — kurseni kohë gjatë javës dhe reduktoni mbeturinat.',
+      en:      'Freeze purées in ice-cube trays — saves weekday time and reduces waste.',
+    },
+    badge: '🧊', bg: '#CFFFD6', ring: '#98E8AA',
   },
 ];
 
