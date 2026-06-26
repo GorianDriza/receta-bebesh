@@ -277,6 +277,127 @@ const CARDS: Card[] = [
     },
     badge: '🧊', bg: '#CFFFD6', ring: '#98E8AA',
   },
+  // ── More First Foods ───────────────────────────────────────────────────────
+  {
+    id: 'meat_intro',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Futja e mishit dhe peshkut',
+      en:      'Introducing meat and fish',
+    },
+    excerpt: {
+      'sq-AL': 'Mishi i pulës, viçit dhe peshku i grirë mund të shtohen nga 6 muajt — burim i mirë i hekurit dhe zinkut.',
+      en:      'Minced chicken, beef, and flaked fish from 6 months — great for iron and zinc.',
+    },
+    badge: '🍗', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'dairy_intro',
+    topic: 'firstfoods',
+    title: {
+      'sq-AL': 'Kur fillon bulmetin i plotë',
+      en:      'When to introduce full-fat dairy',
+    },
+    excerpt: {
+      'sq-AL': 'Kosi i plotë, ricotta dhe djathi i butë janë të sigurtë nga 6 muajt si shtesë ushqimore.',
+      en:      'Full-fat yoghurt, ricotta, and soft cheese are safe from 6 months as a food.',
+    },
+    badge: '🥛', bg: '#D4F0FF', ring: '#94D8FF',
+  },
+  // ── More Nutrition ─────────────────────────────────────────────────────────
+  {
+    id: 'zinc',
+    topic: 'nutrition',
+    title: {
+      'sq-AL': 'Zinku për sistemin imunitar',
+      en:      'Zinc for the immune system',
+    },
+    excerpt: {
+      'sq-AL': 'Mishi i kuq, bishtajat dhe farat janë burime të mira zinku për fëmijë.',
+      en:      'Red meat, legumes, and seeds are good zinc sources to build immunity.',
+    },
+    badge: 'Zn', bg: '#CFFFD6', ring: '#98E8AA',
+  },
+  {
+    id: 'vitc_iron',
+    topic: 'nutrition',
+    title: {
+      'sq-AL': 'Vitamina C rrit absorbimin e hekurit',
+      en:      'Vitamin C boosts iron absorption',
+    },
+    excerpt: {
+      'sq-AL': 'Jepini ushqime të pasura me Vit C (domate, portokall) bashkë me ushqime me hekur.',
+      en:      'Pair iron-rich foods with Vit C sources (tomato, orange) to absorb more iron.',
+    },
+    badge: 'C+Fe', bg: '#FFF39D', ring: '#F4E15F',
+  },
+  // ── More Allergies ─────────────────────────────────────────────────────────
+  {
+    id: 'label_reading',
+    topic: 'allergies',
+    title: {
+      'sq-AL': 'Leximi i etiketave të ushqimit',
+      en:      'Reading food labels for allergens',
+    },
+    excerpt: {
+      'sq-AL': 'Alergjenët duhet të shënohen me shkronja të theksuara në etiketë sipas ligjit.',
+      en:      'Allergens must be highlighted in bold on packaging by law — learn to spot them.',
+    },
+    badge: '📋', bg: '#CABEFF', ring: '#A68DFF',
+  },
+  // ── More Tips ──────────────────────────────────────────────────────────────
+  {
+    id: 'avoid_foods',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Ushqimet që duhen shmangur nën 12 muaj',
+      en:      'Foods to avoid under 12 months',
+    },
+    excerpt: {
+      'sq-AL': 'Mjalti, kripë e shtuar, sheqer, qumësht lope si pije dhe peshk me merkur të lartë.',
+      en:      'Honey, added salt, added sugar, cows milk as a drink, and high-mercury fish.',
+    },
+    badge: '🚫', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'portions',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Sa duhet të hajë bebja?',
+      en:      'How much should baby eat?',
+    },
+    excerpt: {
+      'sq-AL': '4-6m: 1-2 lugë çaji. 6-9m: 2-4 lugë gjelle. 9-12m: sa dëshiron — ushqimi kryesor ende është qumështi.',
+      en:      '4-6m: 1-2 tsp. 6-9m: 2-4 tbsp. 9-12m: baby-led amounts — milk is still primary.',
+    },
+    badge: '🥄', bg: '#F0CBFF', ring: '#D494FF',
+  },
+  {
+    id: 'highchair',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Pozicioni i sigurt në karrige të lartë',
+      en:      'Safe high chair posture',
+    },
+    excerpt: {
+      'sq-AL': 'Këmbët të mbështetur, shpina drejt, tavolina në nivelin e bërrylëve — siguron gëlltitje të sigurtë.',
+      en:      'Feet supported, back upright, tray at elbow height — ensures safe swallowing.',
+    },
+    badge: '🪑', bg: '#D4F0FF', ring: '#94D8FF',
+  },
+  {
+    id: 'responsive',
+    topic: 'tips',
+    title: {
+      'sq-AL': 'Ushqyerja responsivë',
+      en:      'Responsive feeding',
+    },
+    excerpt: {
+      'sq-AL': 'Mos e detyroni beben të hajë. Ndaleni kur jep shenja ngopjeje — ndihmon marrëdhënien e shëndetshme me ushqimin.',
+      en:      'Never force-feed. Stop when baby signals fullness — builds a healthy food relationship.',
+    },
+    badge: '🤝', bg: '#CFFFD6', ring: '#98E8AA',
+  },
 ];
 
 export function LearningContent() {
