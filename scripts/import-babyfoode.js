@@ -43,8 +43,9 @@ const CATEGORY_PAGES = [
   'https://babyfoode.com/recipes/page/14/',
   'https://babyfoode.com/recipes/page/15/',
 ];
-const GEMINI_INTERACTIONS_URL =
-  'https://generativelanguage.googleapis.com/v1beta/interactions';
+// TRANSLATE_PROVIDER: 'google' (default, free) | 'gemini' | 'none'
+const TRANSLATE_PROVIDER = process.env.TRANSLATE_PROVIDER || 'google';
+const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
 const IMAGE_TIMEOUT_MS = 45000;
@@ -165,27 +166,105 @@ function htmlDecode(value) {
     .replace(/&gt;/g, '>');
 }
 
+// ── Google Translate (free, no API key) ─────────────────────────────────────
+
+async function googleTranslateChunk(text) {
+  const params = new URLSearchParams({
+    client: 'gtx',
+    sl: 'en',
+    tl: 'sq',
+    dt: 't',
+    q: text,
+  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`, {
+      headers: { 'user-agent': 'Mozilla/5.0' },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Google Translate HTTP ${response.status}`);
+    const data = await response.json();
+    if (!Array.isArray(data) || !Array.isArray(data[0])) throw new Error('Unexpected response');
+    return data[0].filter(Boolean).map((item) => item[0] || '').join('');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function googleTranslateText(text) {
+  if (!text || !text.trim()) return text;
+  const MAX = 1500; // safe URL length per chunk
+  if (text.length <= MAX) return googleTranslateChunk(text);
+
+  // Split on newlines, reassemble into ≤MAX chunks
+  const lines = text.split('\n');
+  const chunks = [];
+  let cur = '';
+  for (const line of lines) {
+    const next = cur ? `${cur}\n${line}` : line;
+    if (next.length > MAX && cur) { chunks.push(cur); cur = line; }
+    else cur = next;
+  }
+  if (cur) chunks.push(cur);
+
+  const results = [];
+  for (const chunk of chunks) {
+    results.push(await googleTranslateChunk(chunk));
+    await sleep(400);
+  }
+  return results.join('\n');
+}
+
+async function translateRecipeWithGoogle(recipe) {
+  await sleep(600);
+  try {
+    const titleSq   = await googleTranslateText(recipe.title.en);   await sleep(300);
+    const summarySq = await googleTranslateText(recipe.summary.en); await sleep(300);
+
+    const ingText   = recipe.ingredients.en.map((v, i) => `${i + 1}. ${v}`).join('\n');
+    const ingSq     = await googleTranslateText(ingText);            await sleep(300);
+    const stepText  = recipe.steps.en.map((v, i) => `${i + 1}. ${v}`).join('\n');
+    const stepSq    = await googleTranslateText(stepText);
+
+    function parseList(raw) {
+      return raw.split('\n').map((l) => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+    }
+
+    return {
+      ...recipe,
+      title:       createLocalizedText(recipe.title.en, titleSq || recipe.title.en),
+      summary:     createLocalizedText(recipe.summary.en, summarySq || recipe.summary.en),
+      ingredients: createLocalizedTextList(recipe.ingredients.en, parseList(ingSq)),
+      steps:       createLocalizedTextList(recipe.steps.en, parseList(stepSq)),
+      translation: { status: 'machine', provider: 'google-translate-free', reviewedBy: null },
+      updatedAt:   new Date().toISOString(),
+    };
+  } catch (err) {
+    console.warn(`  Google Translate failed for "${recipe.title.en}": ${err.message}`);
+    return recipe;
+  }
+}
+
+// ── Gemini (optional fallback, set TRANSLATE_PROVIDER=gemini) ────────────────
+
 function extractGeminiText(payload) {
-  if (!payload || !Array.isArray(payload.steps)) {
-    return null;
+  // Standard Gemini generateContent response
+  if (payload?.candidates?.[0]?.content?.parts?.[0]?.text) {
+    return payload.candidates[0].content.parts[0].text;
   }
-
-  for (const step of payload.steps) {
-    if (!Array.isArray(step.content)) {
-      continue;
-    }
-
-    const text = step.content
-      .filter((item) => item && item.type === 'text' && typeof item.text === 'string')
-      .map((item) => item.text)
-      .join('\n')
-      .trim();
-
-    if (text) {
-      return text;
+  // Older/alternate format
+  if (Array.isArray(payload?.steps)) {
+    for (const step of payload.steps) {
+      if (!Array.isArray(step.content)) continue;
+      const text = step.content
+        .filter((item) => item?.type === 'text' && typeof item.text === 'string')
+        .map((item) => item.text)
+        .join('\n')
+        .trim();
+      if (text) return text;
     }
   }
-
   return null;
 }
 
@@ -430,87 +509,67 @@ async function fetchHtml(url) {
 }
 
 async function mirrorRecipeImage(recipe) {
-  if (!recipe.source.imageUrl) {
-    return recipe;
-  }
-
+  if (!recipe.source.imageUrl) return recipe;
   const adminApp = getFirebaseAdminApp();
-
-  if (!adminApp) {
-    return recipe;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, IMAGE_TIMEOUT_MS);
-
-  let response;
+  if (!adminApp) return recipe;
 
   try {
-    response = await fetch(recipe.source.imageUrl, {
-      headers: {
-        'user-agent': 'receta-bebesh-importer/1.0',
-        accept: 'image/*',
-      },
-      signal: controller.signal,
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch(recipe.source.imageUrl, {
+        headers: { 'user-agent': 'receta-bebesh-importer/1.0', accept: 'image/*' },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!response.ok) {
+      throw new Error(`image download ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const extension = inferExtension(recipe.source.imageUrl, contentType);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const storagePath = `recipes/${recipe.slug}/cover.${extension}`;
+    const downloadToken = randomUUID();
+    const bucket = getStorage(adminApp).bucket();
+    const file = bucket.file(storagePath);
+
+    await file.save(buffer, {
+      resumable: false,
+      contentType,
+      metadata: { contentType, metadata: { firebaseStorageDownloadTokens: downloadToken, sourceUrl: recipe.source.imageUrl } },
     });
-  } finally {
-    clearTimeout(timeoutId);
+
+    const downloadUrl =
+      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
+      `${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
+    const mirroredAt = new Date().toISOString();
+
+    return {
+      ...recipe,
+      image: { sourceUrl: recipe.source.imageUrl, storagePath, downloadUrl, contentType, mirroredAt },
+      updatedAt: mirroredAt,
+    };
+  } catch (err) {
+    const msg = err.message?.split('\n')[0] ?? String(err);
+    console.warn(`  Image mirror skipped for ${recipe.slug}: ${msg}`);
+    return recipe;
   }
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download recipe image ${recipe.source.imageUrl}: ${response.status}`,
-    );
-  }
-
-  const contentType = response.headers.get('content-type') || 'image/jpeg';
-  const extension = inferExtension(recipe.source.imageUrl, contentType);
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const storagePath = `recipes/${recipe.slug}/cover.${extension}`;
-  const downloadToken = randomUUID();
-  const bucket = getStorage(adminApp).bucket();
-  const file = bucket.file(storagePath);
-
-  await file.save(buffer, {
-    resumable: false,
-    contentType,
-    metadata: {
-      contentType,
-      metadata: {
-        firebaseStorageDownloadTokens: downloadToken,
-        sourceUrl: recipe.source.imageUrl,
-      },
-    },
-  });
-
-  const downloadUrl =
-    `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
-    `${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
-  const mirroredAt = new Date().toISOString();
-
-  return {
-    ...recipe,
-    image: {
-      sourceUrl: recipe.source.imageUrl,
-      storagePath,
-      downloadUrl,
-      contentType,
-      mirroredAt,
-    },
-    updatedAt: mirroredAt,
-  };
 }
 
 async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   let attempt = 0;
   while (attempt <= maxRetries) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
     let response;
     try {
-      response = await fetch(GEMINI_INTERACTIONS_URL, {
+      response = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         signal: controller.signal,
@@ -519,65 +578,52 @@ async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
     } finally {
       clearTimeout(timeoutId);
     }
-
     if (response.status === 429) {
       attempt++;
-      if (attempt > maxRetries) {
-        const text = await response.text();
-        throw new Error(`Gemini 429 after ${maxRetries} retries: ${text}`);
-      }
+      if (attempt > maxRetries) throw new Error(`Gemini 429 after ${maxRetries} retries`);
       const waitMs = Math.min(60000, 5000 * Math.pow(2, attempt));
-      console.log(`  Gemini rate limited (429) — waiting ${waitMs / 1000}s before retry ${attempt}/${maxRetries}...`);
+      console.log(`  Gemini rate limited — waiting ${waitMs / 1000}s...`);
       await sleep(waitMs);
       continue;
     }
-
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Gemini translation failed: ${response.status} ${text}`);
+      throw new Error(`Gemini HTTP ${response.status}: ${text}`);
     }
-
     return response.json();
   }
 }
 
 async function translateRecipeWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL;
+  const model  = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  if (!apiKey) return recipe;
 
-  if (!apiKey || !model) {
-    return recipe;
-  }
-
-  // Throttle: free tier allows 15 RPM — 4s gap keeps well under limit
-  await sleep(4000);
+  await sleep(4000); // 15 RPM free tier
 
   let payload;
   try {
     payload = await callGeminiWithRetry(apiKey, model, {
-      model,
-      system_instruction:
-        'Translate recipe content from English into Albanian. Return valid JSON only with keys: title, summary, ingredients, steps. Preserve meaning, keep units explicit, and do not add commentary.',
-      input: JSON.stringify({
-        title: recipe.title.en,
-        summary: recipe.summary.en,
-        ingredients: recipe.ingredients.en,
-        steps: recipe.steps.en,
-      }),
-      generation_config: {
-        temperature: 0.2,
-        thinking_level: 'low',
-      },
+      contents: [{
+        parts: [{
+          text: `Translate this recipe from English to Albanian. Return valid JSON only with keys: title, summary, ingredients (array), steps (array). Preserve meaning and units.\n\n${JSON.stringify({
+            title: recipe.title.en,
+            summary: recipe.summary.en,
+            ingredients: recipe.ingredients.en,
+            steps: recipe.steps.en,
+          })}`,
+        }],
+      }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
     });
   } catch (err) {
-    console.warn(`  Translation skipped for "${recipe.title.en}": ${err.message}`);
+    console.warn(`  Gemini skipped for "${recipe.title.en}": ${err.message}`);
     return recipe;
   }
 
   const outputText = extractGeminiText(payload);
-
   if (!outputText) {
-    console.warn(`  Translation returned no text for "${recipe.title.en}" — skipping.`);
+    console.warn(`  Gemini returned no text for "${recipe.title.en}"`);
     return recipe;
   }
 
@@ -585,36 +631,28 @@ async function translateRecipeWithGemini(recipe) {
   try {
     translated = JSON.parse(extractJsonObject(outputText));
   } catch {
-    console.warn(`  Translation JSON parse failed for "${recipe.title.en}" — skipping.`);
+    console.warn(`  Gemini JSON parse failed for "${recipe.title.en}"`);
     return recipe;
   }
 
   return {
     ...recipe,
-    title: createLocalizedText(recipe.title.en, translated.title || recipe.title.en),
-    summary: createLocalizedText(
-      recipe.summary.en,
-      translated.summary || recipe.summary.en,
-    ),
-    ingredients: createLocalizedTextList(
-      recipe.ingredients.en,
-      Array.isArray(translated.ingredients)
-        ? translated.ingredients.map((item) => String(item))
-        : [],
-    ),
-    steps: createLocalizedTextList(
-      recipe.steps.en,
-      Array.isArray(translated.steps)
-        ? translated.steps.map((item) => String(item))
-        : [],
-    ),
-    translation: {
-      status: 'machine',
-      provider: `gemini:${model}`,
-      reviewedBy: null,
-    },
-    updatedAt: new Date().toISOString(),
+    title:       createLocalizedText(recipe.title.en, translated.title || recipe.title.en),
+    summary:     createLocalizedText(recipe.summary.en, translated.summary || recipe.summary.en),
+    ingredients: createLocalizedTextList(recipe.ingredients.en,
+      Array.isArray(translated.ingredients) ? translated.ingredients.map(String) : []),
+    steps:       createLocalizedTextList(recipe.steps.en,
+      Array.isArray(translated.steps) ? translated.steps.map(String) : []),
+    translation: { status: 'machine', provider: `gemini:${model}`, reviewedBy: null },
+    updatedAt:   new Date().toISOString(),
   };
+}
+
+async function translateRecipe(recipe) {
+  if (TRANSLATE_PROVIDER === 'none') return recipe;
+  if (TRANSLATE_PROVIDER === 'gemini') return translateRecipeWithGemini(recipe);
+  // Default: free Google Translate
+  return translateRecipeWithGoogle(recipe);
 }
 
 function extractRecipeLinks(html) {
@@ -748,7 +786,7 @@ async function importRecipes(limit) {
     }
 
     const normalizedRecipe = normalizeRecipe(url, recipeNode);
-    const translatedRecipe = await translateRecipeWithGemini(normalizedRecipe);
+    const translatedRecipe = await translateRecipe(normalizedRecipe);
     const mirroredRecipe = await mirrorRecipeImage(translatedRecipe);
 
     records.push(mirroredRecipe);
@@ -783,14 +821,12 @@ async function importRecipes(limit) {
 
   console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
 
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL) {
-    console.log(
-      `Albanian translations were generated with Gemini model ${process.env.GEMINI_MODEL}.`,
-    );
+  if (TRANSLATE_PROVIDER === 'none') {
+    console.log('Translation disabled (TRANSLATE_PROVIDER=none). Albanian fields mirror English.');
+  } else if (TRANSLATE_PROVIDER === 'gemini') {
+    console.log(`Albanian translations generated with Gemini (model: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite'}).`);
   } else {
-    console.log(
-      'Albanian fields currently mirror English. Set GEMINI_API_KEY and GEMINI_MODEL to enable automatic translation.',
-    );
+    console.log('Albanian translations generated with Google Translate (free).');
   }
 
   if (getServiceAccountConfig() || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
