@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
@@ -9,6 +9,7 @@ import { ShoppingListModal } from './ShoppingListModal';
 import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from '../lib/recipes';
 import { addShoppingItem } from '../lib/shoppingList';
+import { getRating, setRating } from '../lib/ratings';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -16,7 +17,7 @@ const LABELS: Record<AppLanguage, {
   ingredients: string; instructions: string;
   min: string; noImage: string; addToPlanner: string; plannerAdded: string;
   addAllToList: string; itemAdded: string; viewList: string;
-  startCooking: string;
+  startCooking: string; ratingTitle: string; notePlaceholder: string; noteSaved: string;
 }> = {
   'sq-AL': {
     ingredients: 'Përbërësit', instructions: 'Mënyra e Përgatitjes',
@@ -24,6 +25,7 @@ const LABELS: Record<AppLanguage, {
     addToPlanner: 'Shto në Plan', plannerAdded: 'U shtua!',
     addAllToList: 'Shto të gjitha në listë', itemAdded: '✓ Shtuar',
     viewList: 'Shiko listën', startCooking: '👨‍🍳 Fillo gatimin',
+    ratingTitle: 'Vlerësimi juaj', notePlaceholder: 'Shënime (opsionale)...', noteSaved: '✓ Ruajtur',
   },
   en: {
     ingredients: 'Ingredients', instructions: 'Instructions',
@@ -31,6 +33,7 @@ const LABELS: Record<AppLanguage, {
     addToPlanner: 'Add to Plan', plannerAdded: 'Added!',
     addAllToList: 'Add all to list', itemAdded: '✓ Added',
     viewList: 'View list', startCooking: '👨‍🍳 Start Cooking',
+    ratingTitle: 'Your rating', notePlaceholder: 'Notes (optional)...', noteSaved: '✓ Saved',
   },
 };
 
@@ -45,6 +48,34 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
   const [addedMsg, setAddedMsg]         = useState(false);
   const [shoppingOpen, setShoppingOpen] = useState(false);
   const [cookingOpen, setCookingOpen]   = useState(false);
+
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingNote,  setRatingNote]  = useState('');
+  const [ratingSaved, setRatingSaved] = useState(false);
+
+  const loadRating = useCallback(async () => {
+    if (!recipe) return;
+    const r = await getRating(recipe.id);
+    if (r) { setRatingStars(r.stars); setRatingNote(r.note); }
+    else    { setRatingStars(0); setRatingNote(''); }
+  }, [recipe?.id]);
+
+  useEffect(() => { loadRating(); }, [loadRating]);
+
+  async function handleSaveRating(stars: number) {
+    if (!recipe) return;
+    setRatingStars(stars);
+    await setRating(recipe.id, stars, ratingNote);
+    setRatingSaved(true);
+    setTimeout(() => setRatingSaved(false), 1500);
+  }
+
+  async function handleSaveNote() {
+    if (!recipe || ratingStars === 0) return;
+    await setRating(recipe.id, ratingStars, ratingNote);
+    setRatingSaved(true);
+    setTimeout(() => setRatingSaved(false), 1500);
+  }
   const [addedIngIds, setAddedIngIds]   = useState<Set<number>>(new Set());
   const [allAddedMsg, setAllAddedMsg]   = useState(false);
 
@@ -152,6 +183,34 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
               </View>
             ))}
 
+
+            {/* Rating */}
+            <View style={s.divider} />
+            <View style={s.ratingSection}>
+              <View style={s.ratingHeader}>
+                <Text style={s.sectionHeading}>{L.ratingTitle}</Text>
+                {ratingSaved && <Text style={s.ratingSavedMsg}>{L.noteSaved}</Text>}
+              </View>
+              <View style={s.starsRow}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Pressable key={n} onPress={() => handleSaveRating(n)} hitSlop={6}>
+                    <Text style={[s.star, n <= ratingStars && s.starFilled]}>{n <= ratingStars ? '★' : '☆'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {ratingStars > 0 && (
+                <TextInput
+                  style={s.noteInput}
+                  placeholder={L.notePlaceholder}
+                  placeholderTextColor="#B0ABB8"
+                  value={ratingNote}
+                  onChangeText={setRatingNote}
+                  onBlur={handleSaveNote}
+                  multiline
+                  numberOfLines={3}
+                />
+              )}
+            </View>
 
             {/* Action buttons */}
             <View style={s.divider} />
@@ -319,6 +378,19 @@ const s = StyleSheet.create({
   stepText: { flex: 1, fontSize: 15, lineHeight: 24, color: '#39354A' },
 
   // Source
+
+  // Rating
+  ratingSection: { gap: 10 },
+  ratingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ratingSavedMsg: { fontSize: 13, fontWeight: '700', color: '#3AABA0' },
+  starsRow: { flexDirection: 'row', gap: 8 },
+  star: { fontSize: 32, color: '#D8D4E3' },
+  starFilled: { color: '#FFB800' },
+  noteInput: {
+    borderWidth: 1.5, borderColor: '#E8E5F0', borderRadius: 14,
+    padding: 12, fontSize: 14, lineHeight: 20, color: '#39354A',
+    textAlignVertical: 'top', minHeight: 70,
+  },
 
   // Action buttons row
   actionRow: { gap: 12 },

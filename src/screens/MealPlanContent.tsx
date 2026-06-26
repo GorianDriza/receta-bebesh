@@ -8,6 +8,7 @@ import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { fetchRecipes, RecipeRecord, RecipeStage } from '../lib/recipes';
+import { getAllRatings } from '../lib/ratings';
 import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
@@ -51,6 +52,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [favouriteIds, setFavIds]     = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [plannerRecipe, setPlannerRecipe] = useState<RecipeRecord | null>(null);
+  const [ratingsMap, setRatingsMap]   = useState<Record<string, number>>({});
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -81,6 +83,14 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     if (!user || !isFirebaseConfigured) return;
     getFavouriteIds(user.uid).then(setFavIds).catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    getAllRatings().then((map) => {
+      const stars: Record<string, number> = {};
+      for (const [id, r] of Object.entries(map)) stars[id] = r.stars;
+      setRatingsMap(stars);
+    }).catch(() => {});
+  }, []);
 
   async function toggleFavourite(recipe: RecipeRecord) {
     if (!user) { onLoginRequired?.(); return; }
@@ -370,12 +380,19 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
 
                     <View style={s.mealInfo}>
                       <Text style={s.mealTitle}>{recipe.title[language]}</Text>
-                      {dur !== '' && (
-                        <View style={s.durationPill}>
-                          <IconButton icon="clock-time-four-outline" size={16} iconColor="#111" style={s.icon0} />
-                          <Text style={s.durationText}>{dur}</Text>
-                        </View>
-                      )}
+                      <View style={s.mealMetaRow}>
+                        {dur !== '' && (
+                          <View style={s.durationPill}>
+                            <IconButton icon="clock-time-four-outline" size={16} iconColor="#111" style={s.icon0} />
+                            <Text style={s.durationText}>{dur}</Text>
+                          </View>
+                        )}
+                        {(ratingsMap[recipe.id] ?? 0) > 0 && (
+                          <View style={s.ratingPill}>
+                            <Text style={s.ratingPillText}>{'★'.repeat(ratingsMap[recipe.id])}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
 
                     <View style={s.platePos}>
@@ -396,7 +413,14 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         </View>
       </ScrollView>
 
-      <RecipeDetailModal recipe={selected} onClose={() => setSelected(null)} />
+      <RecipeDetailModal recipe={selected} onClose={() => {
+        setSelected(null);
+        getAllRatings().then((map) => {
+          const stars: Record<string, number> = {};
+          for (const [id, r] of Object.entries(map)) stars[id] = r.stars;
+          setRatingsMap(stars);
+        }).catch(() => {});
+      }} />
       {plannerRecipe != null && (
         <PlannerPickerSheet
           recipe={plannerRecipe}
@@ -483,7 +507,10 @@ const s = StyleSheet.create({
   icon0:        { margin: 0 },
   mealInfo:     { maxWidth: '58%', gap: 14 },
   mealTitle:    { fontSize: 23, lineHeight: 29, fontWeight: '800', letterSpacing: -0.8, color: '#111111' },
+  mealMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 0 },
   durationPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FFF0', borderRadius: 999, paddingLeft: 6, paddingRight: 14, paddingVertical: 5 },
+  ratingPill: { alignSelf: 'flex-start', backgroundColor: '#FFF8E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
 
   platePos:    { position: 'absolute', right: 18, bottom: 16 },
