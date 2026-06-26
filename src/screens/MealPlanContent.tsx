@@ -42,6 +42,14 @@ function durationLabel(r: RecipeRecord): string {
   return mins != null ? `${mins} min` : '';
 }
 
+function difficultyLabel(r: RecipeRecord): { label: string; color: string } | null {
+  const steps = r.steps?.en?.length ?? r.steps?.['sq-AL']?.length ?? 0;
+  if (steps === 0) return null;
+  if (steps <= 3) return { label: '● Easy', color: '#3AAB72' };
+  if (steps <= 6) return { label: '●● Med', color: '#F4A62C' };
+  return { label: '●●● Hard', color: '#E05252' };
+}
+
 type FilterId = RecipeStage | 'all' | 'fav' | 'rated';
 type MealFilter = RecipeRecord['mealType'] | 'any';
 type TimeFilter = 'any' | 'quick' | 'medium';
@@ -537,6 +545,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
             const p = paletteFor(i);
             const imgUrl = recipe.image?.downloadUrl ?? recipe.image?.sourceUrl ?? null;
             const dur = durationLabel(recipe);
+            const diff = difficultyLabel(recipe);
             const isFav = favouriteIds.has(recipe.id);
             return (
               <Animated.View key={recipe.id} entering={FadeInDown.delay(i * 70).springify().damping(14)}>
@@ -589,6 +598,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                           <View style={s.ratingPill}>
                             <Text style={s.ratingPillText}>{'★'.repeat(ratingsMap[recipe.id])}</Text>
                           </View>
+                        )}
+                        {diff != null && (
+                          <Text style={[s.diffText, { color: diff.color }]}>{diff.label}</Text>
                         )}
                       </View>
                     </View>
@@ -738,6 +750,7 @@ const s = StyleSheet.create({
   ratingPill: { alignSelf: 'flex-start', backgroundColor: '#FFF8E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
+  diffText: { fontSize: 11, fontWeight: '700', alignSelf: 'center' },
 
   recentSection: { gap: 10 },
   recentHeading: { fontSize: 18, fontWeight: '800', letterSpacing: -0.4, color: '#111111' },
