@@ -87,7 +87,7 @@ const CARDS: Card[] = [
     id: 'grains',
     topic: 'firstfoods',
     title: { 'sq-AL': 'Drithërat dhe cerealet', en: 'Grains and cereals' },
-    excerpt: { 'sq-AL': 'Orizin, tërbithë dhe misrin mund t'i shtoni nga 6 muajt si pure ose qull.', en: 'Rice, oats, and corn can be introduced from 6 months as porridge or mash.' },
+    excerpt: { 'sq-AL': "Orizin, tërbithë dhe misrin mund t'i shtoni nga 6 muajt si pure ose qull.", en: 'Rice, oats, and corn can be introduced from 6 months as porridge or mash.' },
     body: {
       'sq-AL': 'Drithërat janë burim i mirë i energjisë dhe disa mineraleve. Qullja me tërbithë (oat porridge) është shumë e lehtë për t\'u bërë dhe mund të pasurohet me fruta të buta. Orizi i bardhë i gatuar mirë bëhet pure e shkëlqyer. Gluteni (gruri, elbi, thekra) mund të futet pa problem nga 6 muajt — studime moderne nuk e mbështesin vonimin e glutenit.',
       en: 'Grains are a great source of energy and some minerals. Oat porridge is easy to prepare and can be enriched with soft fruit. Well-cooked white rice makes an excellent purée. Gluten (wheat, barley, rye) can be introduced from 6 months without concern — modern research does not support delaying gluten.',
