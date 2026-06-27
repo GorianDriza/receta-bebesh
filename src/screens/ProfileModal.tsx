@@ -20,7 +20,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { AppLanguage, translations } from '../i18n/translations';
 import { AuthInput } from './auth/AuthInput';
-import { getRemindersEnabled, setRemindersEnabled } from '../lib/notificationPrefs';
+import { getNotifTimes, getRemindersEnabled, NotifTimes, setNotifTimes, setRemindersEnabled } from '../lib/notificationPrefs';
 import { getCookStreak } from '../lib/cookHistory';
 import { getFavouriteIds } from '../lib/favourites';
 import { getUncheckedCount } from '../lib/shoppingList';
@@ -131,6 +131,10 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [profileSwitcherOpen, setProfileSwitcherOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<BabyProfile | null>(null);
   const [remindersEnabled, setRemindersEnabledState] = useState(true);
+  const [lunchH, setLunchH]   = useState(12);
+  const [lunchM, setLunchM]   = useState(0);
+  const [dinnerH, setDinnerH] = useState(17);
+  const [dinnerM, setDinnerM] = useState(30);
   const [streak, setStreak]     = useState(0);
   const [favCount, setFavCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
@@ -139,6 +143,7 @@ export function ProfileModal({ visible, onClose }: Props) {
     if (!visible) return;
     getActiveProfile().then(setActiveProfile).catch(() => {});
     getRemindersEnabled().then(setRemindersEnabledState).catch(() => {});
+    getNotifTimes().then((t) => { setLunchH(t.lunchHour); setLunchM(t.lunchMinute); setDinnerH(t.dinnerHour); setDinnerM(t.dinnerMinute); }).catch(() => {});
     getCookStreak().then(setStreak).catch(() => {});
     getUncheckedCount().then(setCartCount).catch(() => {});
     if (user) getFavouriteIds(user.uid).then((ids) => setFavCount(ids.size)).catch(() => {});
@@ -232,6 +237,14 @@ export function ProfileModal({ visible, onClose }: Props) {
         },
       ],
     );
+  }
+
+  async function handleTimeChange(times: NotifTimes) {
+    setLunchH(times.lunchHour);
+    setLunchM(times.lunchMinute);
+    setDinnerH(times.dinnerHour);
+    setDinnerM(times.dinnerMinute);
+    await setNotifTimes(times, userProfile?.babyName ?? undefined);
   }
 
   const langOptions: Array<{ id: AppLanguage; label: string }> = [
@@ -410,6 +423,57 @@ export function ProfileModal({ visible, onClose }: Props) {
               </View>
             </Pressable>
 
+            {/* Notification times */}
+            {remindersEnabled && (
+              <View style={s.timesCard}>
+                <Text style={s.timesTitle}>
+                  {language === 'sq-AL' ? 'Ora e njoftimeve' : 'Notification times'}
+                </Text>
+                {/* Lunch */}
+                <View style={s.timeRow}>
+                  <Text style={s.timeMealLabel}>{language === 'sq-AL' ? '🥗 Drekë' : '🥗 Lunch'}</Text>
+                  <View style={s.timeStepper}>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: (lunchH - 1 + 24) % 24, lunchMinute: lunchM, dinnerHour: dinnerH, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>−</Text>
+                    </Pressable>
+                    <Text style={s.timeVal}>{String(lunchH).padStart(2, '0')}</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: (lunchH + 1) % 24, lunchMinute: lunchM, dinnerHour: dinnerH, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>+</Text>
+                    </Pressable>
+                    <Text style={s.timeColon}>:</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: (lunchM - 5 + 60) % 60, dinnerHour: dinnerH, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>−</Text>
+                    </Pressable>
+                    <Text style={s.timeVal}>{String(lunchM).padStart(2, '0')}</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: (lunchM + 5) % 60, dinnerHour: dinnerH, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>+</Text>
+                    </Pressable>
+                  </View>
+                </View>
+                {/* Dinner */}
+                <View style={s.timeRow}>
+                  <Text style={s.timeMealLabel}>{language === 'sq-AL' ? '🍲 Darkë' : '🍲 Dinner'}</Text>
+                  <View style={s.timeStepper}>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: lunchM, dinnerHour: (dinnerH - 1 + 24) % 24, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>−</Text>
+                    </Pressable>
+                    <Text style={s.timeVal}>{String(dinnerH).padStart(2, '0')}</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: lunchM, dinnerHour: (dinnerH + 1) % 24, dinnerMinute: dinnerM })}>
+                      <Text style={s.stepBtnText}>+</Text>
+                    </Pressable>
+                    <Text style={s.timeColon}>:</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: lunchM, dinnerHour: dinnerH, dinnerMinute: (dinnerM - 5 + 60) % 60 })}>
+                      <Text style={s.stepBtnText}>−</Text>
+                    </Pressable>
+                    <Text style={s.timeVal}>{String(dinnerM).padStart(2, '0')}</Text>
+                    <Pressable style={s.stepBtn} hitSlop={6} onPress={() => void handleTimeChange({ lunchHour: lunchH, lunchMinute: lunchM, dinnerHour: dinnerH, dinnerMinute: (dinnerM + 5) % 60 })}>
+                      <Text style={s.stepBtnText}>+</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Logout */}
             <Pressable style={s.logoutBtn} onPress={handleLogout}>
               <Text style={s.logoutLabel}>{l.logoutBtn}</Text>
@@ -542,6 +606,16 @@ const s = StyleSheet.create({
   notifToggleOn: { backgroundColor: '#6ECAC0' },
   notifToggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', alignSelf: 'flex-start' },
   notifToggleThumbOn: { alignSelf: 'flex-end' },
+
+  timesCard: { backgroundColor: '#F0F8FF', borderRadius: 18, padding: 16, gap: 14 },
+  timesTitle: { fontSize: 13, fontWeight: '700', color: '#2A4B6B' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  timeMealLabel: { fontSize: 14, fontWeight: '700', color: '#2A4B6B', flex: 1 },
+  timeStepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  stepBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  stepBtnText: { fontSize: 17, fontWeight: '700', color: '#2A4B6B', lineHeight: 22 },
+  timeVal: { fontSize: 16, fontWeight: '800', color: '#1A1714', minWidth: 28, textAlign: 'center' },
+  timeColon: { fontSize: 16, fontWeight: '700', color: '#8AAABB', marginHorizontal: 2 },
 
   logoutBtn: {
     backgroundColor: '#FFFFFF',

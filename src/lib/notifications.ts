@@ -40,7 +40,9 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function scheduleMealReminders(babyName?: string): Promise<void> {
+type MealTimes = { lunchHour: number; lunchMinute: number; dinnerHour: number; dinnerMinute: number };
+
+export async function scheduleMealReminders(babyName?: string, times?: MealTimes): Promise<void> {
   if (!Notif) return;
   const granted = await requestNotificationPermissions();
   if (!granted) return;
@@ -49,6 +51,10 @@ export async function scheduleMealReminders(babyName?: string): Promise<void> {
   await Notif.cancelAllScheduledNotificationsAsync();
 
   const nameStr = babyName ? `për ${babyName}` : 'për bebin tuaj';
+  const lh = times?.lunchHour  ?? 12;
+  const lm = times?.lunchMinute ?? 0;
+  const dh = times?.dinnerHour  ?? 17;
+  const dm = times?.dinnerMinute ?? 30;
 
   await Notif.scheduleNotificationAsync({
     content: {
@@ -56,7 +62,7 @@ export async function scheduleMealReminders(babyName?: string): Promise<void> {
       body: `Kontrolloni planin e vaktit ${nameStr}.`,
       ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
     },
-    trigger: { type: 'daily', hour: 12, minute: 0 },
+    trigger: { type: 'daily', hour: lh, minute: lm },
   });
 
   await Notif.scheduleNotificationAsync({
@@ -65,7 +71,7 @@ export async function scheduleMealReminders(babyName?: string): Promise<void> {
       body: `Cila recetë sonte ${nameStr}?`,
       ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
     },
-    trigger: { type: 'daily', hour: 17, minute: 30 },
+    trigger: { type: 'daily', hour: dh, minute: dm },
   });
 }
 
