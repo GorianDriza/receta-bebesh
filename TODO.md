@@ -130,7 +130,7 @@
   - [x] Gemini 429 handled with exponential backoff + 4 s throttle.
 - [ ] Confirm scraping is acceptable for the target pages before bulk import.
 - [x] Run initial import: `npm run import:babyfoode -- --limit=100` (completed).
-- [ ] Run larger import: `npm run import:babyfoode -- --limit=200` for more content.
+- [x] Run larger import: `npm run import:babyfoode -- --limit=200` — 164 recipes imported.
 - [ ] Mirror images to Firebase Storage (requires paid Blaze plan or self-hosted proxy).
 
 ## Data Model
