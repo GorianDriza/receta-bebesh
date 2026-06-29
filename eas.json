@@ -20,6 +20,15 @@
       "distribution": "internal",
       "autoIncrement": true,
       "channel": "production"
+    },
+    "production-ios": {
+      "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "channel": "production",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {
