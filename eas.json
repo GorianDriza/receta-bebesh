@@ -17,6 +17,12 @@
     },
     "production": {
       "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "channel": "production"
+    },
+    "production-internal": {
+      "environment": "production",
       "distribution": "internal",
       "autoIncrement": true,
       "channel": "production"
@@ -32,7 +38,11 @@
     }
   },
   "submit": {
-    "production": {},
+    "production": {
+      "ios": {
+        "appleId": "goriandriza11@gmail.com"
+      }
+    },
     "production-ios": {
       "ios": {
         "appleId": "goriandriza11@gmail.com"
