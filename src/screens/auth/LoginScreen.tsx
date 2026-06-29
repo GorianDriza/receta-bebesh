@@ -14,6 +14,7 @@ import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/aut
 import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { getFirebaseConfigErrorMessage, isFirebaseConfigured } from '../../lib/firebase';
 import { useLanguage } from '../../providers/LanguageProvider';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { AuthInput } from './AuthInput';
 
 const L = {
@@ -29,6 +30,8 @@ const L = {
     resetSent: 'Email rivendosjeje u dërgua!',
     enterEmailFirst: 'Vendosni emailin e parë',
     continueGuest: 'Vazhdo si vizitor',
+    orDivider: 'ose',
+    googleBtn: 'Vazhdo me Google',
   },
   en: {
     title: 'Welcome back 👶',
@@ -42,6 +45,8 @@ const L = {
     resetSent: 'Password reset email sent!',
     enterEmailFirst: 'Enter your email first',
     continueGuest: 'Continue as guest',
+    orDivider: 'or',
+    googleBtn: 'Continue with Google',
   },
 } as const;
 
@@ -51,6 +56,7 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const { language, t } = useLanguage();
   const insets = useSafeAreaInsets();
   const l = t[language].auth.login;
+  const ll = L[language];
   const firebaseConfigError = getFirebaseConfigErrorMessage();
 
   const [email, setEmail]       = useState('');
@@ -59,6 +65,8 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [error, setError]       = useState<string | null>(null);
   const [resetMsg, setResetMsg] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
+
+  const google = useGoogleSignIn();
 
   async function handleLogin() {
     if (!firebaseAuth) {
@@ -150,6 +158,7 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
 
             {!isFirebaseConfigured && <Text style={s.error}>{firebaseConfigError}</Text>}
             {error != null   && <Text style={s.error}>{error}</Text>}
+            {google.error != null && <Text style={s.error}>{google.error}</Text>}
             {resetMsg != null && <Text style={s.success}>{resetMsg}</Text>}
 
             <Pressable
@@ -162,6 +171,21 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
 
             <Pressable onPress={handleForgotPassword} hitSlop={8} disabled={!firebaseAuth}>
               <Text style={s.forgotLink}>{l.forgot}</Text>
+            </Pressable>
+
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>{ll.orDivider}</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            <Pressable
+              style={[s.googleBtn, google.loading && s.btnDisabled]}
+              onPress={() => { google.clearError(); void google.promptAsync(); }}
+              disabled={google.loading || !firebaseAuth}
+            >
+              <Text style={s.googleG}>G</Text>
+              <Text style={s.googleLabel}>{ll.googleBtn}</Text>
             </Pressable>
           </View>
 
@@ -222,6 +246,18 @@ const s = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnLabel:    { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
   forgotLink:  { fontSize: 14, color: '#6ECAC0', textAlign: 'center', fontWeight: '600' },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9E4' },
+  dividerText: { fontSize: 13, color: '#A09599', fontWeight: '600' },
+
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 999, paddingVertical: 16,
+    borderWidth: 1.5, borderColor: '#E0DDD9', backgroundColor: '#FFFFFF',
+  },
+  googleG: { fontSize: 18, fontWeight: '800', color: '#EA4335' },
+  googleLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
 
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },

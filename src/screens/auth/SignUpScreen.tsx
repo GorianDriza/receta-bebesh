@@ -16,6 +16,7 @@ import { getFirebaseConfigErrorMessage, isFirebaseConfigured } from '../../lib/f
 import { createUserProfile } from '../../lib/users';
 import { DatePickerField } from '../../components/DatePickerField';
 import { useLanguage } from '../../providers/LanguageProvider';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { AuthInput } from './AuthInput';
 
 const L = {
@@ -35,6 +36,8 @@ const L = {
     emailMissing: 'Vendosni emailin',
     passMissing: 'Fjalëkalimi min 6 karaktere',
     continueGuest: 'Vazhdo si vizitor',
+    orDivider: 'ose',
+    googleBtn: 'Regjistrohu me Google',
   },
   en: {
     title: 'Create account 👶',
@@ -52,6 +55,8 @@ const L = {
     emailMissing: 'Enter your email',
     passMissing: 'Password must be at least 6 characters',
     continueGuest: 'Continue as guest',
+    orDivider: 'or',
+    googleBtn: 'Sign up with Google',
   },
 } as const;
 
@@ -61,7 +66,9 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
   const { language, t } = useLanguage();
   const insets = useSafeAreaInsets();
   const l = t[language].auth.signup;
+  const ll = L[language];
   const firebaseConfigError = getFirebaseConfigErrorMessage();
+  const google = useGoogleSignIn();
 
   const [name, setName]               = useState('');
   const [babyName, setBabyName]       = useState('');
@@ -196,6 +203,7 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
 
             {!isFirebaseConfigured && <Text style={s.error}>{firebaseConfigError}</Text>}
             {error != null && <Text style={s.error}>{error}</Text>}
+            {google.error != null && <Text style={s.error}>{google.error}</Text>}
 
             <Pressable
               style={[s.btn, loading && s.btnDisabled]}
@@ -203,6 +211,21 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
               disabled={loading || !firebaseAuth}
             >
               <Text style={s.btnLabel}>{loading ? '...' : l.createBtn}</Text>
+            </Pressable>
+
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>{ll.orDivider}</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            <Pressable
+              style={[s.googleBtn, google.loading && s.btnDisabled]}
+              onPress={() => { google.clearError(); void google.promptAsync(); }}
+              disabled={google.loading || !firebaseAuth}
+            >
+              <Text style={s.googleG}>G</Text>
+              <Text style={s.googleLabel}>{ll.googleBtn}</Text>
             </Pressable>
           </View>
 
@@ -284,6 +307,18 @@ const s = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9E4' },
+  dividerText: { fontSize: 13, color: '#A09599', fontWeight: '600' },
+
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 999, paddingVertical: 16,
+    borderWidth: 1.5, borderColor: '#E0DDD9', backgroundColor: '#FFFFFF',
+  },
+  googleG: { fontSize: 18, fontWeight: '800', color: '#EA4335' },
+  googleLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
 
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },

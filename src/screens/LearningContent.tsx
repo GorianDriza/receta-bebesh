@@ -342,45 +342,41 @@ const CARDS: Card[] = [
 
 function LearningArticleModal({ card, onClose }: { card: Card | null; onClose: () => void }) {
   const { language } = useLanguage();
-  if (!card) return null;
-  const topicLabel = language === 'sq-AL'
-    ? TOPICS.find((t) => t.key === card.topic)?.sq ?? ''
-    : TOPICS.find((t) => t.key === card.topic)?.en ?? '';
+  const topicLabel = card
+    ? (TOPICS.find((t) => t.key === card.topic)?.[language === 'sq-AL' ? 'sq' : 'en'] ?? '')
+    : '';
 
   return (
-    <Modal visible={!!card} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaProvider>
-        <SafeAreaView style={[a.root, { backgroundColor: card.bg }]}>
-          {/* Header */}
-          <View style={a.header}>
-            <Pressable style={a.closeBtn} onPress={onClose} hitSlop={8}>
-              <Text style={a.closeX}>✕</Text>
-            </Pressable>
-            <View style={[a.badgeWrap, { backgroundColor: card.ring }]}>
-              <Text style={a.badgeText}>{card.badge}</Text>
-            </View>
-          </View>
-
-          <ScrollView contentContainerStyle={a.scroll} showsVerticalScrollIndicator={false}>
-            {/* Topic pill */}
-            <View style={[a.topicPill, { backgroundColor: `${card.ring}66` }]}>
-              <Text style={[a.topicPillText, { color: '#2A2030' }]}>{topicLabel}</Text>
+    <Modal visible={card !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      {card && (
+        <SafeAreaProvider>
+          <SafeAreaView style={[a.root, { backgroundColor: card.bg }]}>
+            {/* Header */}
+            <View style={a.header}>
+              <Pressable style={a.closeBtn} onPress={onClose} hitSlop={8}>
+                <Text style={a.closeX}>✕</Text>
+              </Pressable>
+              <View style={[a.badgeWrap, { backgroundColor: card.ring }]}>
+                <Text style={a.badgeText}>{card.badge}</Text>
+              </View>
             </View>
 
-            {/* Title */}
-            <Text style={a.title}>{card.title[language]}</Text>
+            <ScrollView contentContainerStyle={a.scroll} showsVerticalScrollIndicator={false}>
+              <View style={[a.topicPill, { backgroundColor: `${card.ring}66` }]}>
+                <Text style={[a.topicPillText, { color: '#2A2030' }]}>{topicLabel}</Text>
+              </View>
 
-            {/* Divider */}
-            <View style={[a.divider, { backgroundColor: card.ring }]} />
+              <Text style={a.title}>{card.title[language]}</Text>
 
-            {/* Excerpt */}
-            <Text style={a.excerpt}>{card.excerpt[language]}</Text>
+              <View style={[a.divider, { backgroundColor: card.ring }]} />
 
-            {/* Body */}
-            <Text style={a.body}>{card.body[language]}</Text>
-          </ScrollView>
-        </SafeAreaView>
-      </SafeAreaProvider>
+              <Text style={a.excerpt}>{card.excerpt[language]}</Text>
+
+              <Text style={a.body}>{card.body[language]}</Text>
+            </ScrollView>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      )}
     </Modal>
   );
 }
