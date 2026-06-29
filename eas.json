@@ -35,9 +35,7 @@
     "production": {},
     "production-ios": {
       "ios": {
-        "appleId": "goriandriza11@gmail.com",
-        "ascAppId": "",
-        "appleTeamId": ""
+        "appleId": "goriandriza11@gmail.com"
       }
     }
   }
