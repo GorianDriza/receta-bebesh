@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Receta Bebesh</title>
+  <style>
+    :root {
+      --bg: #fff9f5;
+      --panel: #ffffff;
+      --text: #1a1714;
+      --muted: #6e6560;
+      --line: #eee4dc;
+      --accent: #6ecac0;
+      --accent-dark: #2f8f86;
+      --warm: #ffd97d;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(255, 217, 125, 0.32), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(110, 202, 192, 0.22), transparent 24%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 32px;
+      box-shadow: 0 18px 48px rgba(26, 23, 20, 0.06);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 38px;
+      line-height: 1.05;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(110, 202, 192, 0.14);
+      color: var(--accent-dark);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 22px;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 34px rgba(26, 23, 20, 0.08);
+    }
+
+    .card h2 {
+      margin: 8px 0 8px;
+      font-size: 22px;
+    }
+
+    .card .icon {
+      font-size: 30px;
+    }
+
+    .footer {
+      margin-top: 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    a.inline {
+      color: var(--accent-dark);
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="pill">Receta Bebesh</div>
+      <h1>Support and Privacy</h1>
+      <p>
+        Public support and privacy pages for the Receta Bebesh iOS release.
+        Use the links below in App Store Connect.
+      </p>
+
+      <div class="grid">
+        <a class="card" href="./support/">
+          <div class="icon">Help</div>
+          <h2>Support</h2>
+          <p>Contact details, response time, and basic help information for app users.</p>
+        </a>
+
+        <a class="card" href="./privacy/">
+          <div class="icon">Privacy</div>
+          <h2>Privacy Policy</h2>
+          <p>How Receta Bebesh collects, uses, stores, and protects user information.</p>
+        </a>
+      </div>
+
+      <p class="footer">
+        Contact: <a class="inline" href="mailto:goriandriza11@gmail.com">goriandriza11@gmail.com</a>
+      </p>
+    </section>
+  </main>
+</body>
+</html>
