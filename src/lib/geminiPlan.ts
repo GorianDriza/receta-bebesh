@@ -2,7 +2,7 @@ import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from './recipes';
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL   = 'gemini-2.0-flash-lite';
+const MODEL   = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-2.0-flash-lite';
 
 export type DayPlanSuggestion = Partial<Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string>>;
 export type WeekPlanSuggestion = Partial<Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', DayPlanSuggestion>>;
