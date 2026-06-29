@@ -222,7 +222,7 @@ export function SignUpScreen({ onGoLogin, onGuestContinue }: Props) {
             <Pressable
               style={[s.googleBtn, google.loading && s.btnDisabled]}
               onPress={() => { google.clearError(); void google.promptAsync(); }}
-              disabled={google.loading || !firebaseAuth}
+              disabled={google.loading || !google.isAvailable || !firebaseAuth}
             >
               <Text style={s.googleG}>G</Text>
               <Text style={s.googleLabel}>{ll.googleBtn}</Text>
