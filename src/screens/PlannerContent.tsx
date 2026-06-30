@@ -276,7 +276,7 @@ export function PlannerContent({ onLoginRequired }: Props) {
                         }}
                       >
                         <Text style={s.cookBtnText}>
-                          {language === 'sq-AL' ? '🍳 Gatiho tani' : '🍳 Cook now'}
+                          {language === 'sq-AL' ? '🍳 Gatuaj tani' : '🍳 Cook now'}
                         </Text>
                       </Pressable>
                     </View>
