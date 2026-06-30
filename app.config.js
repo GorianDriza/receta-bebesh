@@ -81,8 +81,8 @@ module.exports = {
       [
         'expo-image-picker',
         {
-          photosPermission: 'The app needs access to your photos to set a profile picture.',
-          cameraPermission: false,
+          photosPermission: 'The app needs access to your photos to scan food and set a profile picture.',
+          cameraPermission: 'The app uses the camera to scan food images and recipe cards.',
         },
       ],
       [

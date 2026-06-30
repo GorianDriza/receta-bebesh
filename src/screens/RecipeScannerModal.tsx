@@ -143,6 +143,15 @@ export function RecipeScannerModal({ visible, onClose, onSaved }: Props) {
 
   async function pick(fromCamera: boolean) {
     setError(null);
+
+    if (fromCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setError(language === 'sq-AL' ? 'Leja e kamerës u refuzua.' : 'Camera permission denied.');
+        return;
+      }
+    }
+
     const fn = fromCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
     const res = await fn({ base64: true, quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images });
     if (res.canceled || !res.assets?.[0]) return;

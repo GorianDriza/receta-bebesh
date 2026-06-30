@@ -117,6 +117,14 @@ export function FoodScanModal({ visible, onClose, allRecipes }: Props) {
     setImageUri(null);
     setMatches([]);
 
+    if (fromCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setError(language === 'sq-AL' ? 'Leja e kamerës u refuzua.' : 'Camera permission denied.');
+        return;
+      }
+    }
+
     const fn = fromCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
     const res = await fn({ base64: true, quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images });
     if (res.canceled || !res.assets?.[0]) return;
