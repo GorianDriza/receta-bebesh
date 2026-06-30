@@ -112,7 +112,7 @@ export function HomeScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#EFEAFF' },
+  root: { flex: 1, backgroundColor: '#FFF9F5' },
   glowTop: {
     position: 'absolute', top: -120, right: -30,
     width: 240, height: 240, borderRadius: 120,

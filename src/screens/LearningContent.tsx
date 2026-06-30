@@ -315,6 +315,61 @@ const CARDS: Card[] = [
     badge: '🥄', bg: '#F0CBFF', ring: '#D494FF',
   },
   {
+    id: 'allergen_timeline',
+    topic: 'allergies',
+    title: { 'sq-AL': 'Kalendari i futjes së alergjenëve', en: 'Allergen introduction timeline' },
+    excerpt: { 'sq-AL': 'Fillo nga 4-6 muaj: kikiriku, vezët, gruri, soja, peshku — nga një alergjen çdo 3-5 ditë.', en: 'Start from 4-6 months: peanut, egg, wheat, soy, fish — one allergen every 3-5 days.' },
+    body: {
+      'sq-AL': 'Muaji 4–6: filloni me perime, fruta dhe drithëra. Muaji 5–6: shtoni kikirikun (si pasta e holluar), vezë të ziera mirë dhe peshk (salmon i gatuar). Muaji 6–7: shtoni sojën (tofu), grurë (bukë e butë), fara susami. Muaji 7–9: shtoni arrat e pemëve (paste lajthi, bajame). Muaji 9–12: gaforrja/karkaleca (nëse nuk ka histori alergjie). Gjithmonë ofroni alergjen të ri herët ditën — jo gjatë natës — që të vëzhgoni reagim.',
+      en: 'Months 4–6: start with vegetables, fruits, and grains. Months 5–6: add peanut (thinned peanut butter), well-cooked egg, fish (cooked salmon). Months 6–7: add soy (tofu), wheat (soft bread), sesame. Months 7–9: add tree nuts (hazelnut or almond paste). Months 9–12: shellfish/shrimp (if no family allergy history). Always offer a new allergen early in the day — not at night — so you can watch for a reaction.',
+    },
+    badge: '📅', bg: '#FFF39D', ring: '#F4E15F',
+  },
+  {
+    id: 'texture_ages',
+    topic: 'firstfoods',
+    title: { 'sq-AL': 'Progresi i teksturave sipas moshës', en: 'Texture progression by age' },
+    excerpt: { 'sq-AL': '4-6m: pure e hollë → 6-8m: e trashë → 9-12m: e grirë me copa → 12m+: copëza të buta.', en: '4-6m: smooth purée → 6-8m: thick mash → 9-12m: minced with lumps → 12m+: soft pieces.' },
+    body: {
+      'sq-AL': '4–6 muaj: pure shumë e hollë, si konsistencë kosi e lëngshme. Rrjedh lehtë nga luga. 6–8 muaj: pure e trashë, e grirë imët — bebja po zhvillon lëvizjet e nofullës. 8–10 muaj: e grirë me copa të vogla të buta — nofulla stërvitet. 10–12 muaj: copa të buta që ndahen me presion gishti — zhvillohet kafshatja. 12 muaj+: ushqim familjar i prerë imët, pa kripë të shtuar. Mos nxitoni — çdo bebë ka ritmin e vet dhe progresi jo-linear është normal.',
+      en: '4–6 months: very smooth purée, yoghurt-like consistency. Drips easily off the spoon. 6–8 months: thick mash, finely minced — baby is developing jaw movements. 8–10 months: minced with small soft lumps — jaw muscles exercising. 10–12 months: soft pieces that break with finger pressure — chewing develops. 12 months+: finely chopped family food with no added salt. Don\'t rush — every baby has their own pace and non-linear progress is normal.',
+    },
+    badge: '🍽️', bg: '#D4F0FF', ring: '#94D8FF',
+  },
+  {
+    id: 'iron_foods',
+    topic: 'nutrition',
+    title: { 'sq-AL': 'Ushqimet e pasura me hekur', en: 'Iron-rich foods for babies' },
+    excerpt: { 'sq-AL': 'Mëlçia, viçi, thjerrëzat, orizet e pasura — burimet kryesore të hekurit për bebe.', en: 'Liver, beef, lentils, iron-fortified cereals — top iron sources for babies.' },
+    body: {
+      'sq-AL': 'Hekur hem (absorbohet 15–35%): mëlçia e pulës (burimi nr.1), viçi, qengji, salmoni, sardelet. Hekur jo-hem (absorbohet 2–20%): thjerrëzat, fasulet, shpinat, tofua i fortë, fara kungulli, cerealet e pasura. Truk: bashkoni çdo burim hekuri jo-hem me vitaminë C (domate, lëng limoni, speca) — rrit absorbimin 3 herë. Shmangie: çaj dhe kafe brenda 1 ore pas vaktit me hekur frenojnë absorbimin me 60–90%. Mos jepni shumë qumësht lope — sasia e lartë pengon absorbimin e hekurit.',
+      en: 'Haem iron (absorbed 15–35%): chicken liver (top source), beef, lamb, salmon, sardines. Non-haem iron (absorbed 2–20%): lentils, beans, spinach, firm tofu, pumpkin seeds, fortified cereals. Tip: pair every non-haem iron source with vitamin C (tomato, lemon juice, bell pepper) — triples absorption. Avoid: tea and coffee within 1 hour of an iron-rich meal reduce absorption by 60–90%. Don\'t give too much cow\'s milk — high amounts block iron absorption.',
+    },
+    badge: '🩸', bg: '#CFFFD6', ring: '#98E8AA',
+  },
+  {
+    id: 'meal_frequency',
+    topic: 'tips',
+    title: { 'sq-AL': 'Sa herë në ditë duhet të hajë bebja?', en: 'How many meals per day for baby?' },
+    excerpt: { 'sq-AL': '4-6m: 1 vakt. 6-9m: 2-3 vakte. 9-12m: 3 vakte + 1-2 meze. 12m+: 3 vakte + 2 meze.', en: '4-6m: 1 meal. 6-9m: 2-3 meals. 9-12m: 3 meals + 1-2 snacks. 12m+: 3 meals + 2 snacks.' },
+    body: {
+      'sq-AL': '4–6 muaj: 1 vakt provë në ditë, zakonisht drekë — kjo është "praktikë", jo ushqyerje kryesore. 6–9 muaj: 2–3 vakte, me qumësht gjiri ose formula mes vaktilit. 9–12 muaj: 3 vakte kryesore + 1–2 meze të lehta — ushqimi po bëhet gjithnjë e më i rëndësishëm por qumështi vazhdon. 12 muaj+: 3 vakte kryesore + 2 meze, qumështi i lopës (250–500 ml) mund të zëvendësojë formulën. Mos harroni — intervalet e shkurta mes vaktilit mund të çojnë në refuzim — lini të paktën 2.5–3 orë mes vaktive.',
+      en: '4–6 months: 1 trial meal per day, usually lunch — this is "practice," not the main nutrition source. 6–9 months: 2–3 meals, with breast milk or formula between meals. 9–12 months: 3 main meals + 1–2 light snacks — food is becoming increasingly important but milk continues. 12 months+: 3 main meals + 2 snacks; cow\'s milk (250–500 ml) can replace formula. Remember — short gaps between meals can cause refusal — leave at least 2.5–3 hours between meals.',
+    },
+    badge: '🕐', bg: '#FFD9AE', ring: '#FFC681',
+  },
+  {
+    id: 'healthy_fats',
+    topic: 'nutrition',
+    title: { 'sq-AL': 'Yndyrnat e shëndetshme për zhvillim', en: 'Healthy fats for brain development' },
+    excerpt: { 'sq-AL': 'Avokado, vaj ulliri, vaj kokoside dhe gjalpë janë burime të mira yndyre për bebe.', en: 'Avocado, olive oil, coconut oil, and butter are great fat sources for babies.' },
+    body: {
+      'sq-AL': '50% e kalorive të bebes duhet të vijnë nga yndyrna — truri dhe sistemi nervor kanë nevojë urgjente për to. Avokado: yndyrë monosaturate + folik acid + E — ideal si pure e parë. Vaj ulliri i virgër extra: i pasur me polyfenole anti-inflamatore. Gjalpë me yndyrë të plotë: burim i vitaminave A, D, E, K. Vaji i kokosit: acide yndyrore me zinxhir të mesëm (MCT) që absorbohen shpejt. Shmangni vajra vegjetalë të rafinuar (soja, misri, fara pambuku) — acide omega-6 të larta rrisin inflamacionin.',
+      en: '50% of baby\'s calories should come from fats — the brain and nervous system urgently need them. Avocado: monounsaturated fat + folic acid + E — ideal first purée. Extra-virgin olive oil: rich in anti-inflammatory polyphenols. Full-fat butter: source of vitamins A, D, E, K. Coconut oil: medium-chain fatty acids (MCT) that absorb quickly. Avoid refined vegetable oils (soy, corn, cottonseed) — high omega-6 fatty acids promote inflammation.',
+    },
+    badge: '🥑', bg: '#CABEFF', ring: '#A68DFF',
+  },
+  {
     id: 'highchair',
     topic: 'tips',
     title: { 'sq-AL': 'Pozicioni i sigurt në karrige të lartë', en: 'Safe high chair posture' },

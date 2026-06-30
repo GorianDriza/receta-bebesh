@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { initializeApp, getApp, getApps } = require('firebase/app');
-const { getDatabase, goOffline, ref, update } = require('firebase/database');
+const { get, getDatabase, goOffline, ref, update } = require('firebase/database');
 
 const FIREBASE_KEYS = [
   'EXPO_PUBLIC_FIREBASE_API_KEY',
@@ -13,27 +13,40 @@ const FIREBASE_KEYS = [
   'EXPO_PUBLIC_FIREBASE_APP_ID',
 ];
 
-const SOURCE_SITE = 'babyfoode.com';
-const SOURCE_ROOT = 'https://babyfoode.com';
+const DEFAULT_SOURCE_KEY = 'babyfoode';
 const DEFAULT_IMPORT_LIMIT = 12;
+const DEFAULT_DISCOVERY_PAGE_COUNT = 30;
+const DEFAULT_CANDIDATE_MULTIPLIER = 30;
+const MAX_SITEMAPS_TO_SCAN = 12;
 
-const CATEGORY_PAGES = [
-  'https://babyfoode.com/recipes/',
-  'https://babyfoode.com/recipes/page/2/',
-  'https://babyfoode.com/recipes/page/3/',
-  'https://babyfoode.com/recipes/page/4/',
-  'https://babyfoode.com/recipes/page/5/',
-  'https://babyfoode.com/recipes/page/6/',
-  'https://babyfoode.com/recipes/page/7/',
-  'https://babyfoode.com/recipes/page/8/',
-  'https://babyfoode.com/recipes/page/9/',
-  'https://babyfoode.com/recipes/page/10/',
-  'https://babyfoode.com/recipes/page/11/',
-  'https://babyfoode.com/recipes/page/12/',
-  'https://babyfoode.com/recipes/page/13/',
-  'https://babyfoode.com/recipes/page/14/',
-  'https://babyfoode.com/recipes/page/15/',
-];
+const SOURCE_CONFIGS = {
+  babyfoode: {
+    key: 'babyfoode',
+    siteName: 'babyfoode.com',
+    root: 'https://babyfoode.com',
+    envKey: 'BABYFOODE_SOURCE_URLS',
+    recipeIndexPaths: ['recipes'],
+    sitemapPaths: ['sitemap_index.xml', 'post-sitemap.xml'],
+  },
+  mjandhungryman: {
+    key: 'mjandhungryman',
+    siteName: 'mjandhungryman.com',
+    root: 'https://www.mjandhungryman.com',
+    envKey: 'MJANDHUNGRYMAN_SOURCE_URLS',
+    recipeIndexPaths: [
+      'recipe-index',
+      'category/baby-kid-friendly-recipes/breakfastbrunch',
+      'category/baby-kid-friendly-recipes/snacksbaking',
+      'category/baby-kid-friendly-recipes/main-meals',
+      'category/baby-kid-friendly-recipes/lunchbox',
+      'category/baby-kid-friendly-recipes/dips-sauces',
+      'category/baby-kid-friendly-recipes/vegetarian',
+      'category/how-to-series',
+    ],
+    sitemapPaths: ['sitemap_index.xml', 'post-sitemap.xml'],
+  },
+};
+
 // TRANSLATE_PROVIDER: 'google' (default, free) | 'gemini' | 'none'
 const TRANSLATE_PROVIDER = process.env.TRANSLATE_PROVIDER || 'google';
 const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
@@ -104,19 +117,51 @@ function slugify(value) {
 function htmlDecode(value) {
   return value
     .replace(/&amp;/g, '&')
-    .replace(/&#8217;/g, "'")
-    .replace(/&#8211;/g, '-')
-    .replace(/&#8230;/g, '...')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&ldquo;/g, '"')
+    .replace(/&rdquo;/g, '"')
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '-')
+    .replace(/&hellip;/g, '...')
+    // catch any remaining decimal/hex numeric entities
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)));
+}
+
+function unique(values) {
+  return [...new Set(values)];
+}
+
+function getSourceConfig(sourceKey = DEFAULT_SOURCE_KEY) {
+  const normalizedKey = String(sourceKey || DEFAULT_SOURCE_KEY).toLowerCase();
+  const source = SOURCE_CONFIGS[normalizedKey];
+
+  if (!source) {
+    throw new Error(
+      `Unknown source "${sourceKey}". Supported sources: ${Object.keys(SOURCE_CONFIGS).join(', ')}`,
+    );
+  }
+
+  return {
+    ...source,
+    sitemapUrls: source.sitemapPaths.map((sitemapPath) => {
+      try {
+        return new URL(sitemapPath, `${source.root}/`).href;
+      } catch {
+        return `${source.root}/${sitemapPath.replace(/^\/+/, '')}`;
+      }
+    }),
+  };
 }
 
 // ── Google Translate (free, no API key) ─────────────────────────────────────
 
-async function googleTranslateChunk(text) {
+async function googleTranslateChunk(text, attempt = 0) {
   const params = new URLSearchParams({
     client: 'gtx',
     sl: 'en',
@@ -131,7 +176,14 @@ async function googleTranslateChunk(text) {
       headers: { 'user-agent': 'Mozilla/5.0' },
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`Google Translate HTTP ${response.status}`);
+    if (!response.ok) {
+      const err = new Error(`Google Translate HTTP ${response.status}`);
+      if (attempt < 3) {
+        await sleep(1000 * Math.pow(2, attempt));
+        return googleTranslateChunk(text, attempt + 1);
+      }
+      throw err;
+    }
     const data = await response.json();
     if (!Array.isArray(data) || !Array.isArray(data[0])) throw new Error('Unexpected response');
     return data[0].filter(Boolean).map((item) => item[0] || '').join('');
@@ -189,8 +241,7 @@ async function translateRecipeWithGoogle(recipe) {
       updatedAt:   new Date().toISOString(),
     };
   } catch (err) {
-    console.warn(`  Google Translate failed for "${recipe.title.en}": ${err.message}`);
-    return recipe;
+    throw new Error(`Google Translate failed for "${recipe.title.en}": ${err.message}`);
   }
 }
 
@@ -235,6 +286,16 @@ function extractJsonObject(text) {
 
 function stripHtml(value) {
   return htmlDecode(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function normalizeListText(value) {
+  return stripHtml(String(value))
+    .replace(/^[\s•*\-–—▪▸►]+/, '')     // leading bullet characters
+    .replace(/^step\s+\d+\s*[:\-–]?\s*/i, '') // "Step 1:" / "Step 2 -"
+    .replace(/^\d+[.)]\s+/, '')           // "1. " or "1) "
+    .replace(/^\(\d+\)\s*/, '')           // "(1) "
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function extractJsonLdRecipes(html) {
@@ -287,6 +348,12 @@ function collectRecipeNodes(node, recipes) {
   }
 }
 
+function extractSitemapLocations(xml) {
+  return [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)]
+    .map((match) => htmlDecode(match[1].trim()))
+    .filter(Boolean);
+}
+
 function durationToMinutes(value) {
   if (!value || typeof value !== 'string') {
     return null;
@@ -298,26 +365,75 @@ function durationToMinutes(value) {
   return (hours ? Number(hours[1]) * 60 : 0) + (minutes ? Number(minutes[1]) : 0);
 }
 
-function normalizeInstructionStep(step) {
-  if (!step) {
-    return null;
+function normalizeInstructionSteps(instructions) {
+  if (!instructions) {
+    return [];
   }
 
-  if (typeof step === 'string') {
-    return stripHtml(step);
+  if (Array.isArray(instructions)) {
+    return instructions.flatMap((item) => normalizeInstructionSteps(item));
   }
 
-  if (typeof step === 'object') {
-    if (typeof step.text === 'string') {
-      return stripHtml(step.text);
-    }
-
-    if (typeof step.name === 'string') {
-      return stripHtml(step.name);
-    }
+  if (typeof instructions === 'string') {
+    const text = normalizeListText(instructions);
+    return text ? [text] : [];
   }
 
-  return null;
+  if (typeof instructions !== 'object') {
+    return [];
+  }
+
+  if (instructions.itemListElement) {
+    return normalizeInstructionSteps(instructions.itemListElement);
+  }
+
+  const text = typeof instructions.text === 'string'
+    ? instructions.text
+    : typeof instructions.name === 'string'
+      ? instructions.name
+      : null;
+
+  return text ? normalizeInstructionSteps(text) : [];
+}
+
+function parseNutritionNumber(value) {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const normalized = String(value)
+    .replace(/(\d),(?=\d{3}\b)/g, '$1')
+    .replace(',', '.');
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : undefined;
+}
+
+function normalizeNutrition(nutritionNode) {
+  if (!nutritionNode || typeof nutritionNode !== 'object') {
+    return undefined;
+  }
+
+  const nutrition = {
+    kcal: parseNutritionNumber(nutritionNode.calories),
+    proteinG: parseNutritionNumber(nutritionNode.proteinContent),
+    carbsG: parseNutritionNumber(
+      nutritionNode.carbohydrateContent || nutritionNode.carbsContent,
+    ),
+    fatG: parseNutritionNumber(nutritionNode.fatContent),
+    fiberG: parseNutritionNumber(nutritionNode.fiberContent),
+    ironMg: parseNutritionNumber(nutritionNode.ironContent),
+    calciumMg: parseNutritionNumber(nutritionNode.calciumContent),
+    vitaminCMg: parseNutritionNumber(nutritionNode.vitaminCContent),
+  };
+
+  const entries = Object.entries(nutrition)
+    .filter(([, value]) => value !== undefined);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 function guessAgeStage(title, summary, categories) {
@@ -427,6 +543,22 @@ async function fetchHtml(url) {
   return response.text();
 }
 
+function createRecipeIndexPages(pageCount = DEFAULT_DISCOVERY_PAGE_COUNT, source = getSourceConfig()) {
+  const safePageCount = Math.max(1, Math.floor(Number(pageCount) || 1));
+  const pages = [];
+
+  for (const pathName of source.recipeIndexPaths) {
+    const baseUrl = `${source.root}/${pathName.replace(/^\/+|\/+$/g, '')}/`;
+    pages.push(baseUrl);
+
+    for (let page = 2; page <= safePageCount; page++) {
+      pages.push(`${baseUrl}page/${page}/`);
+    }
+  }
+
+  return pages;
+}
+
 async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   let attempt = 0;
@@ -461,8 +593,8 @@ async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
 }
 
 async function translateRecipeWithGemini(recipe) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model  = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-lite';
   if (!apiKey) return recipe;
 
   await sleep(4000); // 15 RPM free tier
@@ -514,50 +646,262 @@ async function translateRecipeWithGemini(recipe) {
   };
 }
 
+async function estimateNutritionWithGemini(recipe) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  if (!apiKey || recipe.nutrition) return recipe;
+
+  await sleep(2000);
+
+  let payload;
+  try {
+    payload = await callGeminiWithRetry(apiKey, model, {
+      contents: [{
+        parts: [{
+          text: `Estimate the nutrition per serving for this baby food recipe. Return valid JSON only with these exact keys (numbers only, no units): kcal, proteinG, carbsG, fatG, fiberG. Omit ironMg, calciumMg, vitaminCMg if unsure. Use realistic baby serving sizes (100-200g).\n\nRecipe: ${recipe.title.en}\nIngredients: ${recipe.ingredients.en.join(', ')}`,
+        }],
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+    });
+  } catch (err) {
+    console.warn(`  Gemini nutrition estimation skipped for "${recipe.title.en}": ${err.message}`);
+    return recipe;
+  }
+
+  const outputText = extractGeminiText(payload);
+  if (!outputText) return recipe;
+
+  try {
+    const raw = JSON.parse(extractJsonObject(outputText));
+    const nutrition = {};
+    for (const [key, val] of Object.entries(raw)) {
+      const num = Number(val);
+      if (Number.isFinite(num) && num >= 0) nutrition[key] = Math.round(num * 10) / 10;
+    }
+    if (Object.keys(nutrition).length > 0) {
+      console.log(`  Estimated nutrition for "${recipe.title.en}": ${JSON.stringify(nutrition)}`);
+      return { ...recipe, nutrition };
+    }
+  } catch {
+    // malformed JSON — skip
+  }
+  return recipe;
+}
+
 async function translateRecipe(recipe) {
   if (TRANSLATE_PROVIDER === 'none') return recipe;
   if (TRANSLATE_PROVIDER === 'gemini') return translateRecipeWithGemini(recipe);
-  // Default: free Google Translate
-  return translateRecipeWithGoogle(recipe);
+  // Default: free Google Translate, with Gemini fallback if key available
+  try {
+    return await translateRecipeWithGoogle(recipe);
+  } catch (err) {
+    console.warn(`  ${err.message}`);
+    if (process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
+      console.log(`  Falling back to Gemini for "${recipe.title.en}"...`);
+      return translateRecipeWithGemini(recipe);
+    }
+    console.warn(`  No Gemini key — skipping Albanian translation for "${recipe.title.en}"`);
+    return recipe;
+  }
 }
 
-function extractRecipeLinks(html) {
-  const links = new Set();
-  const matches = html.matchAll(/href="(https:\/\/babyfoode\.com\/[^"#?]+)"/gi);
+function normalizeSourceLink(href, source = getSourceConfig()) {
+  try {
+    const url = new URL(htmlDecode(href), source.root);
+    const sourceOrigin = new URL(source.root).origin;
 
-  const SKIP = [
-    '/category/', '/tag/', '/author/', '/about', '/contact', '/page/',
-    '/recipes/', '/privacy', '/terms', '/sitemap', '/feed', '/wp-',
-  ];
+    if (url.origin !== sourceOrigin) {
+      return null;
+    }
+
+    url.hash = '';
+    url.search = '';
+
+    if (!isLikelyRecipeUrl(url.href, source)) {
+      return null;
+    }
+
+    return url.href.replace(/\/?$/, '/');
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyRecipeUrl(url, source = getSourceConfig()) {
+  try {
+    const { pathname } = new URL(url);
+    const normalizedPath = pathname.replace(/\/+$/, '/').toLowerCase();
+    const parts = normalizedPath.split('/').filter(Boolean);
+
+    if (parts.length < 1) {
+      return false;
+    }
+
+    if (/\.[a-z0-9]+$/i.test(parts[parts.length - 1])) {
+      return false;
+    }
+
+    const skip = [
+      '/category/', '/tag/', '/author/', '/about', '/contact', '/page/',
+      '/privacy', '/terms', '/sitemap', '/feed', '/wp-',
+      '/shop', '/courses', '/ebook', '/membership', '/comment-page-',
+    ];
+
+    const sourceIndexPaths = source.recipeIndexPaths
+      .map((pathName) => `/${pathName.replace(/^\/+|\/+$/g, '').toLowerCase()}/`);
+
+    return !skip.some((value) => normalizedPath.includes(value))
+      && !sourceIndexPaths.includes(normalizedPath);
+  } catch {
+    return false;
+  }
+}
+
+function extractRecipeLinks(html, source = getSourceConfig()) {
+  const links = new Set();
+  const matches = html.matchAll(/\bhref=(["'])(.*?)\1/gi);
 
   for (const match of matches) {
-    const url = match[1].replace(/\/$/, '') + '/';
-    // Must have at least one path segment that looks like a slug
-    const { pathname } = new URL(url);
-    const parts = pathname.split('/').filter(Boolean);
-    if (parts.length < 1) continue;
-    if (SKIP.some((s) => url.includes(s))) continue;
-    links.add(url);
+    const url = normalizeSourceLink(match[2], source);
+
+    if (url) {
+      links.add(url);
+    }
   }
 
   return [...links];
 }
 
-function normalizeRecipe(url, recipeNode) {
+function readSourceUrlsFile(sourceFile) {
+  if (!sourceFile) {
+    return [];
+  }
+
+  const fullPath = path.resolve(process.cwd(), sourceFile);
+
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`Source URL file does not exist: ${fullPath}`);
+  }
+
+  return fs.readFileSync(fullPath, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
+
+function normalizeManualSourceUrls(urls, source = getSourceConfig()) {
+  return unique(urls.map((url) => normalizeSourceLink(url, source)).filter(Boolean));
+}
+
+function canonicalSourceUrl(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(String(value));
+    url.hash = '';
+    url.search = '';
+    url.hostname = url.hostname.toLowerCase();
+    return url.href.replace(/\/?$/, '/');
+  } catch {
+    return String(value).trim().toLowerCase().replace(/\/?$/, '/');
+  }
+}
+
+function getEnglishText(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return value.en || value['en-US'] || '';
+}
+
+function createDuplicateIndex() {
+  return {
+    ids: new Set(),
+    sourceUrls: new Set(),
+    titleSlugs: new Set(),
+  };
+}
+
+function addRecipeToDuplicateIndex(index, recipe) {
+  if (!recipe) {
+    return;
+  }
+
+  if (recipe.id) {
+    index.ids.add(String(recipe.id));
+  }
+
+  const sourceUrl = canonicalSourceUrl(recipe.source?.url);
+
+  if (sourceUrl) {
+    index.sourceUrls.add(sourceUrl);
+  }
+
+  const titleSlug = slugify(getEnglishText(recipe.title));
+
+  if (titleSlug) {
+    index.titleSlugs.add(titleSlug);
+  }
+}
+
+function createDuplicateIndexFromRecipes(recipes) {
+  const index = createDuplicateIndex();
+
+  for (const recipe of recipes) {
+    addRecipeToDuplicateIndex(index, recipe);
+  }
+
+  return index;
+}
+
+function createDuplicateIndexFromSnapshotValue(value) {
+  if (!value) {
+    return createDuplicateIndex();
+  }
+
+  const recipes = Array.isArray(value)
+    ? value.filter(Boolean)
+    : Object.values(value);
+
+  return createDuplicateIndexFromRecipes(recipes);
+}
+
+function findDuplicateRecipe(recipe, indexes) {
+  const sourceUrl = canonicalSourceUrl(recipe.source?.url);
+  const titleSlug = slugify(getEnglishText(recipe.title));
+
+  for (const { label, index } of indexes) {
+    if (recipe.id && index.ids.has(String(recipe.id))) {
+      return `${label} id "${recipe.id}"`;
+    }
+
+    if (sourceUrl && index.sourceUrls.has(sourceUrl)) {
+      return `${label} source URL "${sourceUrl}"`;
+    }
+
+    if (titleSlug && index.titleSlugs.has(titleSlug)) {
+      return `${label} title "${getEnglishText(recipe.title)}"`;
+    }
+  }
+
+  return null;
+}
+
+function normalizeRecipe(url, recipeNode, source = getSourceConfig()) {
   const title = stripHtml(recipeNode.name || 'Untitled Recipe');
   const summary = stripHtml(recipeNode.description || '');
   const slug = slugify(title || url);
   const ingredients = Array.isArray(recipeNode.recipeIngredient)
-    ? recipeNode.recipeIngredient.map((item) => stripHtml(String(item))).filter(Boolean)
+    ? recipeNode.recipeIngredient.map((item) => normalizeListText(item)).filter(Boolean)
     : [];
-  const instructionsSource = Array.isArray(recipeNode.recipeInstructions)
-    ? recipeNode.recipeInstructions
-    : recipeNode.recipeInstructions
-      ? [recipeNode.recipeInstructions]
-      : [];
-  const steps = instructionsSource
-    .map((item) => normalizeInstructionStep(item))
-    .filter(Boolean);
+  const steps = normalizeInstructionSteps(recipeNode.recipeInstructions);
   const categories = Array.isArray(recipeNode.recipeCategory)
     ? recipeNode.recipeCategory.map((item) => String(item))
     : recipeNode.recipeCategory
@@ -568,9 +912,9 @@ function normalizeRecipe(url, recipeNode) {
     : typeof recipeNode.image === 'string'
       ? recipeNode.image
       : recipeNode.image?.url || null;
+  const nutrition = normalizeNutrition(recipeNode.nutrition);
   const now = new Date().toISOString();
-
-  return {
+  const recipe = {
     id: slug,
     slug,
     languages: ['sq-AL', 'en'],
@@ -591,7 +935,7 @@ function normalizeRecipe(url, recipeNode) {
       mirroredAt: null,
     },
     source: {
-      siteName: SOURCE_SITE,
+      siteName: source.siteName,
       sourceId: slug,
       url,
       imageUrl: image,
@@ -605,17 +949,85 @@ function normalizeRecipe(url, recipeNode) {
     createdAt: now,
     updatedAt: now,
   };
+
+  if (nutrition) {
+    recipe.nutrition = nutrition;
+  }
+
+  return recipe;
 }
 
-async function collectAllRecipeLinks(limit) {
+async function collectSitemapRecipeLinks(limit, source = getSourceConfig()) {
   const seen = new Set();
 
-  for (const pageUrl of CATEGORY_PAGES) {
+  for (const sitemapUrl of source.sitemapUrls) {
+    if (seen.size >= limit) break;
+
+    console.log(`  Scanning sitemap: ${sitemapUrl}`);
+
+    try {
+      const xml = await fetchHtml(sitemapUrl);
+      const locations = extractSitemapLocations(xml);
+      const nestedSitemaps = locations
+        .filter((url) => /sitemap.*\.xml$/i.test(url))
+        .slice(0, MAX_SITEMAPS_TO_SCAN);
+      const pageUrls = nestedSitemaps.length > 0 ? [] : locations;
+
+      for (const pageUrl of pageUrls) {
+        const normalizedUrl = normalizeSourceLink(pageUrl, source);
+        if (normalizedUrl) {
+          seen.add(normalizedUrl);
+          if (seen.size >= limit) break;
+        }
+      }
+
+      for (const nestedSitemapUrl of nestedSitemaps) {
+        if (seen.size >= limit) break;
+
+        try {
+          console.log(`  Scanning nested sitemap: ${nestedSitemapUrl}`);
+          const nestedXml = await fetchHtml(nestedSitemapUrl);
+          const nestedLocations = extractSitemapLocations(nestedXml);
+
+          for (const pageUrl of nestedLocations) {
+            const normalizedUrl = normalizeSourceLink(pageUrl, source);
+            if (normalizedUrl) {
+              seen.add(normalizedUrl);
+              if (seen.size >= limit) break;
+            }
+          }
+        } catch (err) {
+          console.warn(`  Could not fetch ${nestedSitemapUrl}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`  Could not fetch ${sitemapUrl}: ${err.message}`);
+    }
+  }
+
+  return [...seen].slice(0, limit);
+}
+
+async function collectAllRecipeLinks(limit, options = {}) {
+  const source = options.source || getSourceConfig();
+  const seen = new Set(normalizeManualSourceUrls(options.sourceUrls || [], source));
+
+  if (seen.size < limit) {
+    const sitemapLinks = await collectSitemapRecipeLinks(limit, source);
+    for (const link of sitemapLinks) {
+      seen.add(link);
+      if (seen.size >= limit) break;
+    }
+  }
+
+  const categoryPages = createRecipeIndexPages(options.discoveryPageCount, source);
+
+  for (const pageUrl of categoryPages) {
     if (seen.size >= limit) break;
     console.log(`  Scanning page: ${pageUrl}`);
     try {
       const html = await fetchHtml(pageUrl);
-      const links = extractRecipeLinks(html);
+      const links = extractRecipeLinks(html, source);
       for (const link of links) {
         seen.add(link);
         if (seen.size >= limit) break;
@@ -628,45 +1040,114 @@ async function collectAllRecipeLinks(limit) {
   return [...seen].slice(0, limit);
 }
 
-async function importRecipes(limit) {
+async function importRecipes(limit, options = {}) {
   loadDotEnvFile(path.join(process.cwd(), '.env'));
-  requireFirebaseEnv();
+  const source = getSourceConfig(options.source);
 
-  console.log(`Scanning ${CATEGORY_PAGES.length} category pages for recipe links...`);
-  const recipeLinks = await collectAllRecipeLinks(limit);
+  if (!options.dryRun) {
+    requireFirebaseEnv();
+  }
+
+  const app = options.dryRun ? null : getFirebaseApp();
+  const database = app ? getDatabase(app) : null;
+  let existingDuplicateIndex = createDuplicateIndex();
+
+  if (database) {
+    console.log('Reading existing recipes to skip duplicates...');
+    const recipesSnapshot = await Promise.race([
+      get(ref(database, 'recipes')),
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new Error(
+              `Firebase read timed out after ${DATABASE_TIMEOUT_MS}ms.`,
+            ),
+          );
+        }, DATABASE_TIMEOUT_MS);
+      }),
+    ]);
+    existingDuplicateIndex = createDuplicateIndexFromSnapshotValue(recipesSnapshot.val());
+  }
+
+  const sourceUrls = [
+    ...(process.env[source.envKey] || '').split(','),
+    ...readSourceUrlsFile(options.sourceFile),
+    ...(options.sourceUrls || []),
+  ].map((url) => url.trim()).filter(Boolean);
+  const candidateLimit = Math.max(
+    limit * DEFAULT_CANDIDATE_MULTIPLIER,
+    limit + 20,
+  );
+
+  console.log(`Scanning ${source.siteName} sitemaps and recipe index pages for up to ${candidateLimit} candidate links...`);
+  const recipeLinks = await collectAllRecipeLinks(candidateLimit, {
+    discoveryPageCount: options.discoveryPageCount,
+    sourceUrls,
+    source,
+  });
 
   if (recipeLinks.length === 0) {
     throw new Error('No recipe links were found on the source site.');
   }
 
   const records = [];
+  const pendingDuplicateIndex = createDuplicateIndex();
+  let duplicateCount = 0;
+  let pageWithoutRecipeDataCount = 0;
 
   for (const url of recipeLinks) {
+    if (records.length >= limit) {
+      break;
+    }
+
     console.log(`Parsing recipe page: ${url}`);
     const pageHtml = await fetchHtml(url);
     const jsonLdRecipes = extractJsonLdRecipes(pageHtml);
     const recipeNode = jsonLdRecipes[0];
 
     if (!recipeNode) {
+      pageWithoutRecipeDataCount++;
+      console.warn(`  Skipping page without schema.org Recipe data: ${url}`);
       continue;
     }
 
-    const normalizedRecipe = normalizeRecipe(url, recipeNode);
-    const translatedRecipe = await translateRecipe(normalizedRecipe);
+    const normalizedRecipe = normalizeRecipe(url, recipeNode, source);
+    const duplicateReason = findDuplicateRecipe(normalizedRecipe, [
+      { label: 'existing recipe', index: existingDuplicateIndex },
+      { label: 'current import', index: pendingDuplicateIndex },
+    ]);
 
-    records.push(translatedRecipe);
+    if (duplicateReason) {
+      duplicateCount++;
+      console.warn(`  Skipping duplicate (${duplicateReason}): ${url}`);
+      continue;
+    }
+
+    const translatedRecipe = await translateRecipe(normalizedRecipe);
+    const withNutrition = await estimateNutritionWithGemini(translatedRecipe);
+
+    records.push(withNutrition);
+    addRecipeToDuplicateIndex(pendingDuplicateIndex, translatedRecipe);
   }
 
   if (records.length === 0) {
+    if (duplicateCount > 0) {
+      console.log(`No new recipes to import from ${source.siteName}. Skipped ${duplicateCount} duplicates.`);
+      if (database) goOffline(database);
+      return [];
+    }
+
     throw new Error('No recipe pages exposed schema.org recipe data.');
   }
-
-  const app = getFirebaseApp();
-  const database = getDatabase(app);
   const updates = {};
 
   for (const recipe of records) {
     updates[`recipes/${recipe.id}`] = recipe;
+  }
+
+  if (options.dryRun) {
+    console.log(`Dry run complete. Parsed ${records.length} new recipes; skipped ${duplicateCount} duplicates; Firebase was not updated.`);
+    return records;
   }
 
   console.log(`Writing ${records.length} recipes to Firebase...`);
@@ -684,32 +1165,136 @@ async function importRecipes(limit) {
   ]);
   goOffline(database);
 
-  console.log(`Imported ${records.length} recipes from ${SOURCE_SITE}.`);
+  console.log(`Imported ${records.length} recipes from ${source.siteName}; skipped ${duplicateCount} duplicates and ${pageWithoutRecipeDataCount} pages without recipe data.`);
 
   if (TRANSLATE_PROVIDER === 'none') {
     console.log('Translation disabled (TRANSLATE_PROVIDER=none). Albanian fields mirror English.');
   } else if (TRANSLATE_PROVIDER === 'gemini') {
     console.log(`Albanian translations generated with Gemini (model: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite'}).`);
   } else {
-    console.log('Albanian translations generated with Google Translate (free).');
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    console.log(`Albanian translations: Google Translate (free)${geminiKey ? ' + Gemini fallback' : ''}.`);
   }
 
   console.log('Recipe images stored as source URLs (no Firebase Storage required).');
 }
 
+function parseArgs(argv) {
+  const getNumberArg = (name, fallback) => {
+    const arg = argv.find((value) => value.startsWith(`--${name}=`));
+    return arg ? Number(arg.split('=')[1]) : fallback;
+  };
+  const getStringArg = (name) => {
+    const arg = argv.find((value) => value.startsWith(`--${name}=`));
+    return arg ? arg.slice(name.length + 3) : null;
+  };
+  const sourceUrls = argv
+    .filter((value) => value.startsWith('--source-url='))
+    .map((value) => value.slice('--source-url='.length));
+
+  return {
+    limit: getNumberArg('limit', DEFAULT_IMPORT_LIMIT),
+    discoveryPageCount: getNumberArg('pages', DEFAULT_DISCOVERY_PAGE_COUNT),
+    source: getStringArg('source') || DEFAULT_SOURCE_KEY,
+    sourceFile: getStringArg('source-file'),
+    sourceUrls,
+    dryRun: argv.includes('--dry-run'),
+    backfillNutrition: argv.includes('--backfill-nutrition'),
+  };
+}
+
+async function backfillNutrition() {
+  loadDotEnvFile(path.join(process.cwd(), '.env'));
+  requireFirebaseEnv();
+
+  const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY required for --backfill-nutrition');
+
+  const app = getFirebaseApp();
+  const database = getDatabase(app);
+
+  console.log('Loading all recipes from Firebase...');
+  const snapshot = await Promise.race([
+    get(ref(database, 'recipes')),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase read timeout')), DATABASE_TIMEOUT_MS)),
+  ]);
+
+  if (!snapshot.exists()) { console.log('No recipes found.'); goOffline(database); return; }
+
+  const allRecipes = Object.values(snapshot.val());
+  const missing = allRecipes.filter((r) => !r.nutrition);
+  console.log(`${allRecipes.length} total recipes, ${missing.length} missing nutrition.`);
+
+  if (missing.length === 0) { console.log('All recipes already have nutrition data.'); goOffline(database); return; }
+
+  const updates = {};
+  let done = 0;
+  for (const recipe of missing) {
+    const withNutrition = await estimateNutritionWithGemini(recipe);
+    if (withNutrition.nutrition) {
+      updates[`recipes/${recipe.id}/nutrition`] = withNutrition.nutrition;
+      done++;
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    console.log(`Writing nutrition for ${done} recipes...`);
+    await Promise.race([
+      update(ref(database), updates),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase write timeout')), DATABASE_TIMEOUT_MS)),
+    ]);
+    console.log(`Done. Backfilled nutrition for ${done}/${missing.length} recipes.`);
+  } else {
+    console.log('Gemini could not estimate nutrition for any recipe.');
+  }
+
+  goOffline(database);
+}
+
 async function main() {
-  const limitArg = process.argv.find((value) => value.startsWith('--limit='));
-  const limit = limitArg ? Number(limitArg.split('=')[1]) : DEFAULT_IMPORT_LIMIT;
+  const options = parseArgs(process.argv.slice(2));
+
+  if (options.backfillNutrition) {
+    await backfillNutrition();
+    process.exit(0);
+  }
+
+  const limit = options.limit;
 
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new Error('The --limit value must be a positive number.');
   }
 
-  await importRecipes(limit);
+  if (!Number.isFinite(options.discoveryPageCount) || options.discoveryPageCount <= 0) {
+    throw new Error('The --pages value must be a positive number.');
+  }
+
+  await importRecipes(limit, options);
   process.exit(0);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  addRecipeToDuplicateIndex,
+  canonicalSourceUrl,
+  collectAllRecipeLinks,
+  createDuplicateIndex,
+  createDuplicateIndexFromRecipes,
+  createRecipeIndexPages,
+  extractJsonLdRecipes,
+  extractRecipeLinks,
+  extractSitemapLocations,
+  findDuplicateRecipe,
+  getSourceConfig,
+  isLikelyRecipeUrl,
+  normalizeInstructionSteps,
+  normalizeNutrition,
+  normalizeRecipe,
+  parseArgs,
+};

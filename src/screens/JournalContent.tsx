@@ -11,16 +11,12 @@ import {
   todayDayKey,
 } from '../lib/planner';
 import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary, WeekDaySummary, getMonthCookCounts } from '../lib/cookHistory';
+import { fetchRecipes, RecipeRecord } from '../lib/recipes';
+import { summarizeRecipeNutrition, roundNutritionValue } from '../lib/nutrition';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
 type MacroCard = { id: string; label: string; value: string; icon: string; tint: string };
-
-const MACRO_CARDS: MacroCard[] = [
-  { id: 'carbs',   label: 'Karbohidrate', value: '—',  icon: 'barley',        tint: '#FFA800' },
-  { id: 'protein', label: 'Proteina',     value: '—',  icon: 'food-steak',    tint: '#FF8C1A' },
-  { id: 'fat',     label: 'Yndyrna',      value: '—',  icon: 'water-outline', tint: '#F2B23D' },
-];
 
 const MEAL_META: Record<PlannerMealType, { emoji: string; sq: string; en: string; bg: string; accent: string }> = {
   breakfast: { emoji: '🍳', sq: 'Mëngjes', en: 'Breakfast', bg: '#CFC2FF', accent: '#B79DFE' },
@@ -47,12 +43,50 @@ export function JournalContent({ onLoginRequired }: Props) {
   const [monthCounts, setMonthCounts] = useState<Record<string, number>>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedEntries, setSelectedEntries] = useState<DayHistory>({});
+  const [allRecipes, setAllRecipes] = useState<RecipeRecord[]>([]);
+  const [macroCards, setMacroCards] = useState<MacroCard[]>([
+    { id: 'carbs',   label: 'Karbohidrate', value: '—', icon: 'barley',        tint: '#FFA800' },
+    { id: 'protein', label: 'Proteina',     value: '—', icon: 'food-steak',    tint: '#FF8C1A' },
+    { id: 'fat',     label: 'Yndyrna',      value: '—', icon: 'water-outline', tint: '#F2B23D' },
+  ]);
+  const [todayKcal, setTodayKcal] = useState<string>('—');
+  const [todayMeals, setTodayMeals] = useState(0);
 
   useEffect(() => {
-    getDayHistory().then(setCooked).catch(() => {});
+    fetchRecipes().then(setAllRecipes).catch(() => {});
+  }, []);
+
+  function refreshToday(recipes: RecipeRecord[]) {
+    getDayHistory().then((history) => {
+      setCooked(history);
+      const cookedIds = new Set(Object.values(history).filter(Boolean).map((e) => e!.recipeId));
+      const cookedRecipes = recipes.filter((r) => cookedIds.has(r.id));
+      const summary = summarizeRecipeNutrition(cookedRecipes);
+      setTodayMeals(Object.keys(history).length);
+      if (summary.withNutritionCount > 0) {
+        setTodayKcal(roundNutritionValue(summary.totals.kcal));
+        setMacroCards([
+          { id: 'carbs',   label: 'Karbohidrate', value: `${roundNutritionValue(summary.totals.carbsG)}g`,   icon: 'barley',        tint: '#FFA800' },
+          { id: 'protein', label: 'Proteina',     value: `${roundNutritionValue(summary.totals.proteinG)}g`, icon: 'food-steak',    tint: '#FF8C1A' },
+          { id: 'fat',     label: 'Yndyrna',      value: `${roundNutritionValue(summary.totals.fatG)}g`,     icon: 'water-outline', tint: '#F2B23D' },
+        ]);
+      } else {
+        setTodayKcal('—');
+        setMacroCards([
+          { id: 'carbs',   label: 'Karbohidrate', value: '—', icon: 'barley',        tint: '#FFA800' },
+          { id: 'protein', label: 'Proteina',     value: '—', icon: 'food-steak',    tint: '#FF8C1A' },
+          { id: 'fat',     label: 'Yndyrna',      value: '—', icon: 'water-outline', tint: '#F2B23D' },
+        ]);
+      }
+    }).catch(() => {});
     getCookStreak().then(setStreak).catch(() => {});
     getWeekCookSummary().then(setWeekSummary).catch(() => {});
-  }, []);
+  }
+
+  useEffect(() => {
+    refreshToday(allRecipes);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRecipes]);
 
   useEffect(() => {
     getMonthCookCounts(calYear, calMonth).then(setMonthCounts).catch(() => {});
@@ -141,8 +175,8 @@ export function JournalContent({ onLoginRequired }: Props) {
               </Text>
               <Text style={s.panelSub}>
                 {language === 'sq-AL'
-                  ? `${plannedCount} vakte të planifikuara`
-                  : `${plannedCount} meals planned`}
+                  ? `${plannedCount} vakte të planifikuara · ${todayMeals} të gatuar`
+                  : `${plannedCount} planned · ${todayMeals} cooked`}
               </Text>
             </View>
           </View>
@@ -154,20 +188,14 @@ export function JournalContent({ onLoginRequired }: Props) {
         <View style={s.metricRow}>
           <Text style={s.metricLabel}>{t[language].home.consumed}</Text>
           <Text style={s.metricValue}>
-            {language === 'sq-AL' ? 'Jo i gjurmuar' : 'Not tracked'}
+            {todayKcal === '—'
+              ? (language === 'sq-AL' ? 'Jo i gjurmuar' : 'Not tracked')
+              : `${todayKcal} kcal`}
           </Text>
-        </View>
-        <View style={s.metricRow}>
-          <Text style={s.metricLabel}>{t[language].home.remaining}</Text>
-          <Text style={s.metricValue}>—</Text>
-        </View>
-        <View style={[s.metricRow, s.metricRowSoft]}>
-          <Text style={s.metricLabel}>{t[language].home.hydration}</Text>
-          <Text style={s.metricValue}>— {t[language].home.cups}</Text>
         </View>
 
         <View style={s.macroRow}>
-          {MACRO_CARDS.map((macro) => (
+          {macroCards.map((macro) => (
             <Surface key={macro.id} style={s.macroCard} elevation={0}>
               <Text style={s.macroValue}>{macro.value}</Text>
               <View style={s.macroIconRow}>
@@ -248,9 +276,7 @@ export function JournalContent({ onLoginRequired }: Props) {
                       } else {
                         await markCooked(mealKey, entry.recipeId, entry.recipeTitle);
                       }
-                      getDayHistory().then(setCooked).catch(() => {});
-                      getCookStreak().then(setStreak).catch(() => {});
-                      getWeekCookSummary().then(setWeekSummary).catch(() => {});
+                      refreshToday(allRecipes);
                     }}
                   >
                     <Text style={[s.snapPlusText, cooked[mealKey] && s.snapCookedText]}>

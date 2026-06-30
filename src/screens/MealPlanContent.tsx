@@ -9,7 +9,17 @@ import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
-import { fetchRecipes, getRecipeCacheMeta, RecipeRecord, RecipeStage } from '../lib/recipes';
+import { fetchRecipes, getRecipeCacheMeta, RecipeRecord } from '../lib/recipes';
+import {
+  filterAndSortRecipes,
+  getRecipeDurationMinutes,
+  getRecipeStepCount,
+  RecipeAgeFilter,
+  RecipeDifficultyFilter,
+  RecipeMealFilter,
+  RecipeSortMode,
+  RecipeTimeFilter,
+} from '../lib/recipeFilters';
 import { getAllRatings } from '../lib/ratings';
 import { getReactionTerms } from '../lib/foodTracker';
 import { getRecentlyCookedIds } from '../lib/cookHistory';
@@ -39,23 +49,23 @@ function emojiForMealType(mealType: string): string {
 }
 
 function durationLabel(r: RecipeRecord): string {
-  const mins = r.totalMinutes ?? r.prepMinutes ?? null;
+  const mins = getRecipeDurationMinutes(r);
   return mins != null ? `${mins} min` : '';
 }
 
 function difficultyLabel(r: RecipeRecord): { label: string; color: string } | null {
-  const steps = r.steps?.en?.length ?? r.steps?.['sq-AL']?.length ?? 0;
+  const steps = getRecipeStepCount(r);
   if (steps === 0) return null;
   if (steps <= 3) return { label: '● Easy', color: '#3AAB72' };
   if (steps <= 6) return { label: '●● Med', color: '#F4A62C' };
   return { label: '●●● Hard', color: '#E05252' };
 }
 
-type FilterId = RecipeStage | 'all' | 'fav' | 'rated';
-type MealFilter = RecipeRecord['mealType'] | 'any';
-type TimeFilter = 'any' | 'quick' | 'medium';
-type DiffFilter = 'any' | 'easy' | 'med' | 'hard';
-type SortMode = 'default' | 'az' | 'fastest' | 'rated';
+type FilterId = RecipeAgeFilter;
+type MealFilter = RecipeMealFilter;
+type TimeFilter = RecipeTimeFilter;
+type DiffFilter = RecipeDifficultyFilter;
+type SortMode = RecipeSortMode;
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
 
@@ -159,62 +169,24 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     }
   }
 
-  const displayed = useMemo(() => {
-    let filtered = recipes;
-    if (ageFilter === 'fav') {
-      filtered = filtered.filter((r) => favouriteIds.has(r.id));
-    } else if (ageFilter === 'rated') {
-      filtered = filtered.filter((r) => (ratingsMap[r.id] ?? 0) > 0);
-    } else if (ageFilter !== 'all') {
-      filtered = filtered.filter((r) => r.ageStage === ageFilter);
-    }
-    if (mealFilter !== 'any') {
-      filtered = filtered.filter((r) => r.mealType === mealFilter);
-    }
-    if (timeFilter === 'quick') {
-      filtered = filtered.filter((r) => (r.totalMinutes ?? r.prepMinutes ?? 999) <= 15);
-    } else if (timeFilter === 'medium') {
-      filtered = filtered.filter((r) => (r.totalMinutes ?? r.prepMinutes ?? 999) <= 30);
-    }
-    if (searchQuery.trim()) {
-      const normalize = (s: string) =>
-        s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const q = normalize(searchQuery);
-      filtered = filtered.filter((r) => {
-        if (normalize(r.title[language]).includes(q)) return true;
-        const ings = [...(r.ingredients?.[language] ?? []), ...(r.ingredients?.en ?? [])];
-        return ings.some((ing) => normalize(ing).includes(q));
-      });
-    }
-    if (diffFilter !== 'any') {
-      filtered = filtered.filter((r) => {
-        const steps = r.steps?.en?.length ?? r.steps?.['sq-AL']?.length ?? 0;
-        if (diffFilter === 'easy') return steps <= 3 && steps > 0;
-        if (diffFilter === 'med')  return steps >= 4 && steps <= 6;
-        if (diffFilter === 'hard') return steps >= 7;
-        return true;
-      });
-    }
-    if (hideAllergens && reactionTerms.length > 0) {
-      filtered = filtered.filter((r) => {
-        const allText = [
-          ...(r.ingredients?.['sq-AL'] ?? []),
-          ...(r.ingredients?.en ?? []),
-        ].map((s) => s.toLowerCase()).join(' ');
-        return !reactionTerms.some((term) => allText.includes(term));
-      });
-    }
-    if (sortMode === 'az') {
-      filtered = [...filtered].sort((a, b) => a.title[language].localeCompare(b.title[language]));
-    } else if (sortMode === 'fastest') {
-      filtered = [...filtered].sort((a, b) =>
-        (a.totalMinutes ?? a.prepMinutes ?? 999) - (b.totalMinutes ?? b.prepMinutes ?? 999),
-      );
-    } else if (sortMode === 'rated') {
-      filtered = [...filtered].sort((a, b) => (ratingsMap[b.id] ?? 0) - (ratingsMap[a.id] ?? 0));
-    }
-    return showAll ? filtered : filtered.slice(0, 5);
-  }, [recipes, ageFilter, mealFilter, timeFilter, diffFilter, sortMode, favouriteIds, ratingsMap, searchQuery, language, showAll, hideAllergens, reactionTerms]);
+  const filteredRecipes = useMemo(() => filterAndSortRecipes(recipes, {
+    ageFilter,
+    mealFilter,
+    timeFilter,
+    difficultyFilter: diffFilter,
+    sortMode,
+    favouriteIds,
+    ratingsMap,
+    searchQuery,
+    hideAllergens,
+    reactionTerms,
+    language,
+  }), [recipes, ageFilter, mealFilter, timeFilter, diffFilter, sortMode, favouriteIds, ratingsMap, searchQuery, hideAllergens, reactionTerms, language]);
+
+  const displayed = useMemo(
+    () => showAll ? filteredRecipes : filteredRecipes.slice(0, 5),
+    [filteredRecipes, showAll],
+  );
 
   const babyLabel = (() => {
     const bn = userProfile?.babyName;
@@ -253,13 +225,14 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   }, [recipes, userProfile?.babyBirthdate]);
 
   const FILTERS: Array<{ id: FilterId; label: string }> = [
-    { id: 'all',   label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
-    { id: '4-6m',  label: '4-6m' },
-    { id: '6-8m',  label: '6-8m' },
-    { id: '9-12m', label: '9-12m' },
-    { id: '12m+',  label: '12m+' },
-    { id: 'fav',   label: language === 'sq-AL' ? '♡ Ruajtura' : '♡ Saved' },
-    { id: 'rated', label: language === 'sq-AL' ? '⭐ Vlerësuara' : '⭐ Rated' },
+    { id: 'all',    label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
+    { id: '4-6m',   label: '4-6m' },
+    { id: '6-8m',   label: '6-8m' },
+    { id: '9-12m',  label: '9-12m' },
+    { id: '12m+',   label: '12m+' },
+    { id: 'family', label: language === 'sq-AL' ? '👨‍👩‍👧 Familja' : '👨‍👩‍👧 Family' },
+    { id: 'fav',    label: language === 'sq-AL' ? '♡ Ruajtura' : '♡ Saved' },
+    { id: 'rated',  label: language === 'sq-AL' ? '⭐ Vlerësuara' : '⭐ Rated' },
   ];
 
   const TIME_FILTERS: Array<{ id: TimeFilter; label: string }> = [

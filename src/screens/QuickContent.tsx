@@ -11,6 +11,7 @@ import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
+import { FoodScanModal } from './FoodScanModal';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
 const PALETTE = [
@@ -43,6 +44,7 @@ export function QuickContent({ onLoginRequired }: Props) {
   const [tick, setTick]             = useState(0);
   const [cooked, setCooked]         = useState<DayHistory>({});
   const [favouriteIds, setFavIds]   = useState<Set<string>>(new Set());
+  const [scanOpen, setScanOpen]     = useState(false);
   type MealTypeFilter = 'any' | 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'puree' | 'finger-food';
   const [mealTypeFilter, setMealTypeFilter] = useState<MealTypeFilter>('any');
 
@@ -129,9 +131,14 @@ export function QuickContent({ onLoginRequired }: Props) {
                 : (language === 'sq-AL' ? 'Ide të shpejta' : 'Quick ideas')}
             </Text>
           </View>
-          <Pressable style={s.shuffleBtn} onPress={shuffle} hitSlop={8}>
-            <Text style={s.shuffleEmoji}>🔀</Text>
-          </Pressable>
+          <View style={s.headerBtns}>
+            <Pressable style={s.shuffleBtn} onPress={() => setScanOpen(true)} hitSlop={8}>
+              <Text style={s.shuffleEmoji}>📷</Text>
+            </Pressable>
+            <Pressable style={s.shuffleBtn} onPress={shuffle} hitSlop={8}>
+              <Text style={s.shuffleEmoji}>🔀</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Meal type filter chips */}
@@ -267,6 +274,7 @@ export function QuickContent({ onLoginRequired }: Props) {
       {plannerRecipe != null && (
         <PlannerPickerSheet recipe={plannerRecipe} onClose={() => setPlannerRecipe(null)} />
       )}
+      <FoodScanModal visible={scanOpen} onClose={() => setScanOpen(false)} allRecipes={allRecipes} />
     </>
   );
 }
@@ -275,6 +283,7 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 40, gap: 20 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerBtns: { flexDirection: 'row', gap: 8, marginTop: 4 },
   title: { fontSize: 32, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   subtitle: { marginTop: 4, fontSize: 15, color: '#6E6560' },
   shuffleBtn: {
