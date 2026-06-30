@@ -40,4 +40,4 @@
   - Owner sees delete button (🗑) on their own community recipe cards
 
 ### TODO
-- [] Check the scraped data for quality and accuracy
+- [x] Check the scraped data for quality and accuracy
