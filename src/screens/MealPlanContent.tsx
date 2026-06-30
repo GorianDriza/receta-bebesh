@@ -10,6 +10,7 @@ import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
 import { fetchRecipes, getRecipeCacheMeta, RecipeRecord } from '../lib/recipes';
+import { fetchCommunityRecipes, deleteCommunityRecipe, isCommunityRecipe, UserRecipeRecord } from '../lib/userRecipes';
 import {
   filterAndSortRecipes,
   getRecipeDurationMinutes,
@@ -26,6 +27,7 @@ import { getRecentlyCookedIds } from '../lib/cookHistory';
 import { getUncheckedCount } from '../lib/shoppingList';
 import { computeAgeStage } from '../lib/users';
 import { AIPlanModal } from './AIPlanModal';
+import { RecipeScannerModal } from './RecipeScannerModal';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
@@ -89,6 +91,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [reactionCount, setReactionCount] = useState(0);
   const [hideAllergens, setHideAllergens] = useState(false);
   const [aiPlanOpen, setAiPlanOpen]       = useState(false);
+  const [scannerOpen, setScannerOpen]     = useState(false);
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -112,14 +115,25 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     let mounted = true;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(null);
-    fetchRecipes()
-      .then((data) => {
-        if (mounted) startTransition(() => setRecipes(data));
+    Promise.all([fetchRecipes(), fetchCommunityRecipes()])
+      .then(([scraped, community]) => {
+        if (!mounted) return;
+        // Community recipes first so they appear at the top
+        startTransition(() => setRecipes([...community, ...scraped]));
         getRecipeCacheMeta().then((meta) => { if (mounted && meta) setCacheDate(meta.cachedAt); }).catch(() => {});
       })
       .catch((err) => { if (mounted) setError(err instanceof Error ? err.message : 'Could not load recipes.'); })
       .finally(() => { if (mounted) { setLoading(false); setRefreshing(false); } });
     return () => { mounted = false; };
+  }
+
+  async function handleDeleteCommunityRecipe(recipe: RecipeRecord) {
+    try {
+      await deleteCommunityRecipe(recipe.id);
+      setRecipes((prev) => prev.filter((r) => r.id !== recipe.id));
+    } catch {
+      // silent
+    }
   }
 
   useEffect(() => { loadRecipes(); }, []);
@@ -631,10 +645,12 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
             const dur = durationLabel(recipe);
             const diff = difficultyLabel(recipe);
             const isFav = favouriteIds.has(recipe.id);
+            const isCommunity = isCommunityRecipe(recipe);
+            const isOwner = isCommunity && user?.uid === (recipe as UserRecipeRecord).authorId;
             return (
               <Animated.View key={recipe.id} entering={FadeInDown.delay(i * 70).springify().damping(14)}>
                 <Pressable onPress={() => setSelected(recipe)}>
-                  <Surface style={[s.mealCard, { backgroundColor: p.bg }]} elevation={0}>
+                  <Surface style={[s.mealCard, { backgroundColor: p.bg }, isCommunity && s.mealCardCommunity]} elevation={0}>
                     <View style={[s.mealSquare, { backgroundColor: p.accent }]} />
                     <View style={[s.mealPill,   { backgroundColor: `${p.accent}CC` }]} />
 
@@ -662,14 +678,30 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                       >
                         <IconButton icon="plus" size={22} iconColor="#111" style={s.icon0} />
                       </Pressable>
+                      {isOwner && (
+                        <Pressable
+                          style={s.actionBubble}
+                          onPress={(e) => { e.stopPropagation(); void handleDeleteCommunityRecipe(recipe); }}
+                          hitSlop={8}
+                        >
+                          <IconButton icon="delete-outline" size={18} iconColor="#E05252" style={s.icon0} />
+                        </Pressable>
+                      )}
                     </View>
 
                     <View style={s.mealInfo}>
-                      {ageFilter === 'all' && (
-                        <View style={[s.stagePill, { backgroundColor: `${p.accent}CC` }]}>
-                          <Text style={s.stagePillText}>{recipe.ageStage}</Text>
-                        </View>
-                      )}
+                      <View style={s.mealPillRow}>
+                        {ageFilter === 'all' && (
+                          <View style={[s.stagePill, { backgroundColor: `${p.accent}CC` }]}>
+                            <Text style={s.stagePillText}>{recipe.ageStage}</Text>
+                          </View>
+                        )}
+                        {isCommunity && (
+                          <View style={s.communityBadge}>
+                            <Text style={s.communityBadgeText}>👥 Community</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={s.mealTitle}>{recipe.title[language]}</Text>
                       <View style={s.mealMetaRow}>
                         {dur !== '' && (
@@ -732,6 +764,16 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         recipes={recipes}
         babyAgeMonths={babyAgeMonths}
       />
+      <RecipeScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onSaved={() => { setScannerOpen(false); loadRecipes(true); }}
+      />
+
+      {/* Floating add-recipe button */}
+      <Pressable style={s.fab} onPress={() => { if (!user) { onLoginRequired?.(); return; } setScannerOpen(true); }}>
+        <Text style={s.fabText}>📷</Text>
+      </Pressable>
     </>
   );
 }
@@ -821,7 +863,20 @@ const s = StyleSheet.create({
   noticeTitle:   { fontSize: 17, fontWeight: '700', color: '#111111' },
   noticeBody:    { fontSize: 14, lineHeight: 20, color: '#605B71' },
 
-  mealCard:     { minHeight: 176, borderRadius: 30, padding: 18, overflow: 'hidden', justifyContent: 'space-between' },
+  mealCard:          { minHeight: 176, borderRadius: 30, padding: 18, overflow: 'hidden', justifyContent: 'space-between' },
+  mealCardCommunity: { borderWidth: 2, borderColor: '#6ECAC0' },
+  mealPillRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 2 },
+  communityBadge:    { backgroundColor: '#E8FFF8', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  communityBadgeText:{ fontSize: 11, fontWeight: '700', color: '#1A7A6A' },
+  fab: {
+    position: 'absolute', bottom: 96, right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#6ECAC0',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#1A7A6A', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  fabText: { fontSize: 26 },
   mealSquare:   { position: 'absolute', width: 64, height: 64, right: 110, top: 58, borderRadius: 18, transform: [{ rotate: '18deg' }], opacity: 0.55 },
   mealPill:     { position: 'absolute', width: 98, height: 38, left: 18, bottom: 20, borderRadius: 22, opacity: 0.42 },
   mealActions:  { flexDirection: 'row', justifyContent: 'space-between' },

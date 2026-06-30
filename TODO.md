@@ -33,6 +33,11 @@
 - [x] Scan food image and calculate the calories needed for the recipe
   - `FoodScanModal` (📷 button in QuickContent header) — image picker + Gemini Vision → detected food, ingredients list, nutrition estimate (kcal/protein/carbs/fat/fiber), top 4 matching recipes (tappable → detail modal)
 
+- [x] Add option to save recipes. Use camera to scan the recipe and save it automatically. Also add option to edit and delete saved recipes and show to all users.
+  - `RecipeScannerModal`: camera/gallery → Gemini Vision extracts recipe → editable form → saves to `communityRecipes/` in Firebase
+  - 📷 FAB in Meals tab opens the scanner (login required)
+  - Community recipes load alongside scraped ones and appear with teal border + "👥 Community" badge
+  - Owner sees delete button (🗑) on their own community recipe cards
+
 ### TODO
 - [] Check the scraped data for quality and accuracy
-- [] Add option to save recipes. Use camera to scan the recipe and save it automatically. Also add option to edit and delete saved recipes and show to all users.
