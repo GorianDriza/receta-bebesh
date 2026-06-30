@@ -7,6 +7,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { LoginScreen } from './auth/LoginScreen';
 import { SignUpScreen } from './auth/SignUpScreen';
 import { isOnboardingDone, OnboardingScreen } from './OnboardingScreen';
+import { FirstFoodsContent } from './FirstFoodsContent';
 import { JournalContent } from './JournalContent';
 import { LearningContent } from './LearningContent';
 import { MealPlanContent } from './MealPlanContent';
@@ -15,7 +16,7 @@ import { ProfileModal } from './ProfileModal';
 import { QuickContent } from './QuickContent';
 import { ShoppingListModal } from './ShoppingListModal';
 
-type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn';
+type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn' | 'tracker';
 type AuthView = 'login' | 'signup' | null;
 
 const TABS: Array<{ id: TabId; icon: string; label: string }> = [
@@ -24,6 +25,7 @@ const TABS: Array<{ id: TabId; icon: string; label: string }> = [
   { id: 'spark',   icon: 'lightning-bolt',          label: 'Quick'   },
   { id: 'journal', icon: 'clipboard-text-outline',  label: 'Journal' },
   { id: 'learn',   icon: 'book-open-page-variant',  label: 'Learn'   },
+  { id: 'tracker', icon: 'sprout',                  label: 'Foods'   },
 ];
 
 export function HomeScreen() {
@@ -82,6 +84,7 @@ export function HomeScreen() {
         {activeTab === 'spark'   && <QuickContent onLoginRequired={() => setAuthView('login')} />}
         {activeTab === 'journal' && <JournalContent onLoginRequired={() => setAuthView('login')} />}
         {activeTab === 'learn'   && <LearningContent />}
+        {activeTab === 'tracker' && <FirstFoodsContent />}
       </View>
 
       {/* Bottom nav */}
