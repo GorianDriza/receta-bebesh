@@ -24,8 +24,10 @@ import { getNotifTimes, getRemindersEnabled, NotifTimes, setNotifTimes, setRemin
 import { getCookStreak } from '../lib/cookHistory';
 import { getFavouriteIds } from '../lib/favourites';
 import { getUncheckedCount } from '../lib/shoppingList';
+import { AllergenProtocolModal } from './AllergenProtocolModal';
 import { FoodTrackerModal } from './FoodTrackerModal';
 import { GrowthTrackerModal } from './GrowthTrackerModal';
+import { PortionGuideModal } from './PortionGuideModal';
 import { BabyProfileSwitcher } from './BabyProfileSwitcher';
 import { BabyProfile, getActiveProfile } from '../lib/babyProfiles';
 
@@ -128,6 +130,8 @@ export function ProfileModal({ visible, onClose }: Props) {
   const [saved, setSaved]           = useState(false);
   const [foodTrackerOpen, setFoodTrackerOpen] = useState(false);
   const [growthTrackerOpen, setGrowthTrackerOpen] = useState(false);
+  const [allergenOpen, setAllergenOpen] = useState(false);
+  const [portionOpen, setPortionOpen] = useState(false);
   const [profileSwitcherOpen, setProfileSwitcherOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<BabyProfile | null>(null);
   const [remindersEnabled, setRemindersEnabledState] = useState(true);
@@ -394,6 +398,24 @@ export function ProfileModal({ visible, onClose }: Props) {
               <Text style={s.foodTrackerArrow}>›</Text>
             </Pressable>
 
+            {/* Allergen Protocol */}
+            <Pressable style={[s.foodTrackerBtn, s.allergenBtn]} onPress={() => setAllergenOpen(true)}>
+              <Text style={s.foodTrackerIcon}>🎯</Text>
+              <Text style={[s.foodTrackerLabel, s.allergenLabel]}>
+                {language === 'sq-AL' ? 'Protokolli i Alergenëve' : 'Allergen Protocol'}
+              </Text>
+              <Text style={s.foodTrackerArrow}>›</Text>
+            </Pressable>
+
+            {/* Portion Guide */}
+            <Pressable style={[s.foodTrackerBtn, s.portionBtn]} onPress={() => setPortionOpen(true)}>
+              <Text style={s.foodTrackerIcon}>🍽️</Text>
+              <Text style={[s.foodTrackerLabel, s.portionLabel]}>
+                {language === 'sq-AL' ? 'Udhëzues Porcionesh' : 'Portion Guide'}
+              </Text>
+              <Text style={s.foodTrackerArrow}>›</Text>
+            </Pressable>
+
             {/* Baby Profile Switcher */}
             <Pressable style={[s.foodTrackerBtn, s.profilesBtn]} onPress={() => setProfileSwitcherOpen(true)}>
               <Text style={s.foodTrackerIcon}>👶</Text>
@@ -484,6 +506,8 @@ export function ProfileModal({ visible, onClose }: Props) {
       </SafeAreaProvider>
       <FoodTrackerModal visible={foodTrackerOpen} onClose={() => setFoodTrackerOpen(false)} />
       <GrowthTrackerModal visible={growthTrackerOpen} onClose={() => setGrowthTrackerOpen(false)} />
+      <AllergenProtocolModal visible={allergenOpen} onClose={() => setAllergenOpen(false)} />
+      <PortionGuideModal visible={portionOpen} onClose={() => setPortionOpen(false)} />
       <BabyProfileSwitcher
         visible={profileSwitcherOpen}
         onClose={() => setProfileSwitcherOpen(false)}
@@ -590,6 +614,11 @@ const s = StyleSheet.create({
 
   growthBtn: { backgroundColor: '#F0EBFF' },
   growthLabel: { color: '#5A3FA0' },
+
+  allergenBtn: { backgroundColor: '#FFF5E0' },
+  allergenLabel: { color: '#A05A00' },
+  portionBtn: { backgroundColor: '#F0FFF4' },
+  portionLabel: { color: '#2A6B50' },
 
   profilesBtn: { backgroundColor: '#FFF5E8' },
   profilesBtnInner: { flex: 1, gap: 2 },

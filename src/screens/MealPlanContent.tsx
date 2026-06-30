@@ -27,6 +27,7 @@ import { getRecentlyCookedIds } from '../lib/cookHistory';
 import { getUncheckedCount } from '../lib/shoppingList';
 import { computeAgeStage } from '../lib/users';
 import { AIPlanModal } from './AIPlanModal';
+import { FreezerModal } from './FreezerModal';
 import { RecipeScannerModal } from './RecipeScannerModal';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
@@ -92,6 +93,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [hideAllergens, setHideAllergens] = useState(false);
   const [aiPlanOpen, setAiPlanOpen]       = useState(false);
   const [scannerOpen, setScannerOpen]     = useState(false);
+  const [freezerOpen, setFreezerOpen]     = useState(false);
 
   const defaultFilter = useMemo<FilterId>(() => {
     const bd = userProfile?.babyBirthdate;
@@ -289,6 +291,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               <Text style={s.screenSub}>{t[language].home.subtitle}</Text>
             )}
           </View>
+          <Pressable style={s.cartBtn} onPress={() => setFreezerOpen(true)} hitSlop={8}>
+            <Text style={s.cartIcon}>🧊</Text>
+          </Pressable>
           <Pressable style={s.cartBtn} onPress={() => {
             onShoppingPress?.();
             setTimeout(() => getUncheckedCount().then(setCartCount).catch(() => {}), 500);
@@ -769,6 +774,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         onClose={() => setScannerOpen(false)}
         onSaved={() => { setScannerOpen(false); loadRecipes(true); }}
       />
+      <FreezerModal visible={freezerOpen} onClose={() => setFreezerOpen(false)} />
 
       {/* Floating add-recipe button */}
       <Pressable style={s.fab} onPress={() => { if (!user) { onLoginRequired?.(); return; } setScannerOpen(true); }}>

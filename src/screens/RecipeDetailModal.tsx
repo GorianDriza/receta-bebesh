@@ -11,6 +11,8 @@ import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord, RecipeNutrition } from '../lib/recipes';
 import { addShoppingItem } from '../lib/shoppingList';
 import { getRating, setRating } from '../lib/ratings';
+import { checkSafety, SafetyMatch } from '../lib/foodSafety';
+import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -67,8 +69,16 @@ type Props = { recipe: RecipeRecord | null; onClose: () => void };
 
 export function RecipeDetailModal({ recipe, onClose }: Props) {
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const L = LABELS[language];
+
+  const safetyAlerts: SafetyMatch[] = (() => {
+    if (!recipe) return [];
+    const bd = userProfile?.babyBirthdate;
+    const stage = bd ? computeAgeStage(bd) : null;
+    const ageMonths = stage === '4-6m' ? 5 : stage === '6-8m' ? 7 : stage === '9-12m' ? 10 : 14;
+    return checkSafety(recipe.ingredients[language] ?? [], ageMonths);
+  })();
 
   const [plannerOpen, setPlannerOpen]   = useState(false);
   const [addedMsg, setAddedMsg]         = useState(false);
@@ -199,6 +209,21 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
             {recipe?.summary[language] ? (
               <Text style={s.summary}>{recipe.summary[language]}</Text>
             ) : null}
+
+            {/* Safety alerts */}
+            {safetyAlerts.length > 0 && (
+              <View style={s.safetyBox}>
+                {safetyAlerts.map(({ rule, ingredient }) => (
+                  <View key={rule.id} style={[s.safetyRow, rule.type === 'danger' && s.safetyRowDanger]}>
+                    <Text style={s.safetyIcon}>{rule.type === 'danger' ? '🚨' : '⚠️'}</Text>
+                    <View style={s.safetyBody}>
+                      <Text style={s.safetyIngredient}>{ingredient}</Text>
+                      <Text style={s.safetyReason}>{language === 'sq-AL' ? rule.reason_sq : rule.reason_en}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={s.divider} />
 
@@ -430,6 +455,19 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   nutriNAText: { fontSize: 13, color: '#B0ABB8', fontStyle: 'italic' },
+
+  // Safety alerts
+  safetyBox: { gap: 8 },
+  safetyRow: {
+    flexDirection: 'row', gap: 10, alignItems: 'flex-start',
+    backgroundColor: '#FFF8E0', borderRadius: 14,
+    padding: 12, borderLeftWidth: 3, borderLeftColor: '#F4A62C',
+  },
+  safetyRowDanger: { backgroundColor: '#FFF0F0', borderLeftColor: '#E05252' },
+  safetyIcon: { fontSize: 18, lineHeight: 22 },
+  safetyBody: { flex: 1, gap: 2 },
+  safetyIngredient: { fontSize: 13, fontWeight: '800', color: '#3D3530' },
+  safetyReason: { fontSize: 12, color: '#5A4A3A', lineHeight: 16 },
 
   // Ingredients
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

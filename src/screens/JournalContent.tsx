@@ -20,6 +20,35 @@ import { useLanguage } from '../providers/LanguageProvider';
 
 type MacroCard = { id: string; label: string; value: string; icon: string; tint: string };
 
+const FOOD_GROUP_KEYWORDS: Array<{
+  id: string; emoji: string; label_sq: string; label_en: string; color: string; keywords: string[];
+}> = [
+  { id: 'grains',  emoji: '🌾', label_sq: 'Drithëra',  label_en: 'Grains',   color: '#FFB800', keywords: ['rice','oriz','pasta','oat','tërshërë','flour','miell','bread','bukë','quinoa','barley','elb','corn','misër'] },
+  { id: 'protein', emoji: '💪', label_sq: 'Proteinë',  label_en: 'Protein',  color: '#6ECAC0', keywords: ['chicken','pulë','beef','viç','fish','peshk','salmon','egg','vezë','tofu','lentil','thjerrëz','chickpea','qiqër','turkey','lamb','qingj'] },
+  { id: 'dairy',   emoji: '🥛', label_sq: 'Bulmet',    label_en: 'Dairy',    color: '#A88BEB', keywords: ['milk','qumësht','yogurt','kos','cheese','djathë','butter','gjalpë','cream','ricotta'] },
+  { id: 'produce', emoji: '🥬', label_sq: 'Perime/Fruta', label_en: 'Produce', color: '#3AAB72', keywords: ['carrot','karot','potato','patate','apple','moll','banana','spinach','spinaq','broccoli','mango','pear','dardhë','tomato','domate','zucchini','kungull','avocado','pea','bizele'] },
+  { id: 'fats',    emoji: '🫙', label_sq: 'Yndyrna të mira', label_en: 'Healthy Fats', color: '#FF8C1A', keywords: ['olive oil','vaj ulliri','avocado','salmon','butter','gjalpë','flaxseed','chia','walnut','arra','almond','badam'] },
+];
+
+function computeWeeklyVariety(weekSummary: WeekDaySummary[], allRecipes: RecipeRecord[]): Set<string> {
+  const covered = new Set<string>();
+  const recipeMap = new Map(allRecipes.map((r) => [r.id, r]));
+  const cookedRecipes = weekSummary
+    .flatMap((d) => d.entries)
+    .map((e) => recipeMap.get(e.recipeId))
+    .filter(Boolean) as RecipeRecord[];
+  const corpus = cookedRecipes
+    .flatMap((r) => [...(r.ingredients['sq-AL'] ?? []), ...(r.ingredients['en'] ?? [])])
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  for (const grp of FOOD_GROUP_KEYWORDS) {
+    if (grp.keywords.some((kw) => corpus.includes(kw))) covered.add(grp.id);
+  }
+  return covered;
+}
+
 const MEAL_META: Record<PlannerMealType, { emoji: string; sq: string; en: string; bg: string; accent: string }> = {
   breakfast: { emoji: '🍳', sq: 'Mëngjes', en: 'Breakfast', bg: '#CFC2FF', accent: '#B79DFE' },
   lunch:     { emoji: '🥗', sq: 'Drekë',   en: 'Lunch',     bg: '#FFF19D', accent: '#FFE25A' },
@@ -258,6 +287,41 @@ export function JournalContent({ onLoginRequired }: Props) {
                 {language === 'sq-AL' ? 'Shënoni vaktet si të gatuar për të parë progresin.' : 'Mark meals as cooked to see progress.'}
               </Text>
             )}
+          </Surface>
+        );
+      })()}
+
+      {/* Weekly variety dashboard */}
+      {weekSummary.some((d) => d.count > 0) && (() => {
+        const covered = computeWeeklyVariety(weekSummary, allRecipes);
+        return (
+          <Surface style={s.varietyCard} elevation={0}>
+            <Text style={s.varietyTitle}>
+              {language === 'sq-AL' ? '📊 Varieteti Javor' : '📊 Weekly Variety'}
+            </Text>
+            <Text style={s.varietySub}>
+              {covered.size}/5 {language === 'sq-AL' ? 'grupe ushqimore' : 'food groups'}
+            </Text>
+            <View style={s.varietyRow}>
+              {FOOD_GROUP_KEYWORDS.map((grp) => {
+                const hit = covered.has(grp.id);
+                return (
+                  <View key={grp.id} style={s.varietyCell}>
+                    <View style={[s.varietyBubble, { backgroundColor: hit ? grp.color : '#F0EDE8' }]}>
+                      <Text style={s.varietyEmoji}>{grp.emoji}</Text>
+                    </View>
+                    <Text style={[s.varietyLabel, hit && { color: grp.color }]} numberOfLines={2}>
+                      {language === 'sq-AL' ? grp.label_sq : grp.label_en}
+                    </Text>
+                    {!hit && (
+                      <Text style={s.varietyMissing}>
+                        {language === 'sq-AL' ? 'mungon' : 'missing'}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           </Surface>
         );
       })()}
@@ -547,6 +611,20 @@ const s = StyleSheet.create({
   historyEntryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyCheck: { fontSize: 14, color: '#6ECAC0', fontWeight: '800' },
   historyRecipe: { flex: 1, fontSize: 14, color: '#1A1714', fontWeight: '600' },
+
+  varietyCard: {
+    borderRadius: 24, backgroundColor: '#FEFFFE',
+    padding: 16, gap: 10,
+    borderWidth: 1, borderColor: '#E8F0EE',
+  },
+  varietyTitle: { fontSize: 18, fontWeight: '800', color: '#111111' },
+  varietySub: { fontSize: 12, fontWeight: '700', color: '#6E9A98', marginTop: -6 },
+  varietyRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  varietyCell: { alignItems: 'center', gap: 4, flex: 1 },
+  varietyBubble: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  varietyEmoji: { fontSize: 22 },
+  varietyLabel: { fontSize: 9, fontWeight: '700', color: '#9E9590', textAlign: 'center' },
+  varietyMissing: { fontSize: 8, fontWeight: '600', color: '#C4B8A8', textAlign: 'center' },
 
   gapCard: {
     borderRadius: 24, backgroundColor: '#FEFFFE',
