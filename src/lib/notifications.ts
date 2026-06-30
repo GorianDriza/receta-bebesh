@@ -48,7 +48,11 @@ export async function scheduleMealReminders(babyName?: string, times?: MealTimes
   if (!granted) return;
 
   await ensureChannel();
-  await Notif.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notif.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // unavailable on web / Expo Go
+  }
 
   const nameStr = babyName ? `për ${babyName}` : 'për bebin tuaj';
   const lh = times?.lunchHour  ?? 12;
@@ -56,26 +60,34 @@ export async function scheduleMealReminders(babyName?: string, times?: MealTimes
   const dh = times?.dinnerHour  ?? 17;
   const dm = times?.dinnerMinute ?? 30;
 
-  await Notif.scheduleNotificationAsync({
-    content: {
-      title: 'Koha e drekës! 🥗',
-      body: `Kontrolloni planin e vaktit ${nameStr}.`,
-      ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
-    },
-    trigger: { type: 'daily', hour: lh, minute: lm },
-  });
+  try {
+    await Notif.scheduleNotificationAsync({
+      content: {
+        title: 'Koha e drekës! 🥗',
+        body: `Kontrolloni planin e vaktit ${nameStr}.`,
+        ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
+      },
+      trigger: { type: 'daily', hour: lh, minute: lm },
+    });
 
-  await Notif.scheduleNotificationAsync({
-    content: {
-      title: 'Koha e darkës! 🍲',
-      body: `Cila recetë sonte ${nameStr}?`,
-      ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
-    },
-    trigger: { type: 'daily', hour: dh, minute: dm },
-  });
+    await Notif.scheduleNotificationAsync({
+      content: {
+        title: 'Koha e darkës! 🍲',
+        body: `Cila recetë sonte ${nameStr}?`,
+        ...(Platform.OS === 'android' && { channelId: CHANNEL_ID }),
+      },
+      trigger: { type: 'daily', hour: dh, minute: dm },
+    });
+  } catch {
+    // unavailable on web / Expo Go
+  }
 }
 
 export async function cancelMealReminders(): Promise<void> {
   if (!Notif) return;
-  await Notif.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notif.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // unavailable on web / Expo Go
+  }
 }
