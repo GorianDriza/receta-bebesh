@@ -12,6 +12,7 @@ import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 import { FoodScanModal } from './FoodScanModal';
+import { FridgeModal } from './FridgeModal';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
 const PALETTE = [
@@ -44,7 +45,8 @@ export function QuickContent({ onLoginRequired }: Props) {
   const [tick, setTick]             = useState(0);
   const [cooked, setCooked]         = useState<DayHistory>({});
   const [favouriteIds, setFavIds]   = useState<Set<string>>(new Set());
-  const [scanOpen, setScanOpen]     = useState(false);
+  const [scanOpen,   setScanOpen]   = useState(false);
+  const [fridgeOpen, setFridgeOpen] = useState(false);
   type MealTypeFilter = 'any' | 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'puree' | 'finger-food';
   const [mealTypeFilter, setMealTypeFilter] = useState<MealTypeFilter>('any');
 
@@ -132,6 +134,9 @@ export function QuickContent({ onLoginRequired }: Props) {
             </Text>
           </View>
           <View style={s.headerBtns}>
+            <Pressable style={s.shuffleBtn} onPress={() => setFridgeOpen(true)} hitSlop={8}>
+              <Text style={s.shuffleEmoji}>🥕</Text>
+            </Pressable>
             <Pressable style={s.shuffleBtn} onPress={() => setScanOpen(true)} hitSlop={8}>
               <Text style={s.shuffleEmoji}>📷</Text>
             </Pressable>
@@ -275,6 +280,7 @@ export function QuickContent({ onLoginRequired }: Props) {
         <PlannerPickerSheet recipe={plannerRecipe} onClose={() => setPlannerRecipe(null)} />
       )}
       <FoodScanModal visible={scanOpen} onClose={() => setScanOpen(false)} allRecipes={allRecipes} />
+      <FridgeModal visible={fridgeOpen} onClose={() => setFridgeOpen(false)} allRecipes={allRecipes} />
     </>
   );
 }

@@ -13,6 +13,8 @@ import {
 import { getDayHistory, DayHistory, markCooked, unmarkCooked, getCookStreak, getWeekCookSummary, WeekDaySummary, getMonthCookCounts } from '../lib/cookHistory';
 import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { summarizeRecipeNutrition, roundNutritionValue } from '../lib/nutrition';
+import { DAILY_TARGETS, NUTRIENT_META } from '../lib/nutritionTargets';
+import { computeAgeStage } from '../lib/users';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
@@ -31,7 +33,7 @@ type Props = { onLoginRequired?: () => void };
 
 export function JournalContent({ onLoginRequired }: Props) {
   const { language, t } = useLanguage();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [dayPlan, setDayPlan]       = useState<DayPlan>({});
   const [loading, setLoading]       = useState(false);
   const [cooked, setCooked]         = useState<DayHistory>({});
@@ -208,6 +210,57 @@ export function JournalContent({ onLoginRequired }: Props) {
           ))}
         </View>
       </Surface>
+
+      {/* Nutrition gap chart */}
+      {(() => {
+        const bd = userProfile?.babyBirthdate;
+        const stage = bd ? computeAgeStage(bd) : null;
+        const targets = stage ? DAILY_TARGETS[stage] : null;
+        if (!targets) return null;
+
+        // Pull actual totals from macroCards state
+        const parse = (v: string) => parseFloat(v.replace('g', '')) || 0;
+        const kcalActual = todayKcal === '—' ? 0 : parseFloat(todayKcal) || 0;
+        const actuals: Record<string, number> = {
+          kcal:     kcalActual,
+          proteinG: parse(macroCards.find((m) => m.id === 'protein')?.value ?? '0'),
+          carbsG:   parse(macroCards.find((m) => m.id === 'carbs')?.value ?? '0'),
+          fatG:     parse(macroCards.find((m) => m.id === 'fat')?.value ?? '0'),
+          fiberG:   0,
+        };
+        const hasData = kcalActual > 0;
+
+        return (
+          <Surface style={s.gapCard} elevation={0}>
+            <Text style={s.gapTitle}>
+              {language === 'sq-AL' ? '🎯 Objektivat e Ditës' : '🎯 Daily Targets'}
+            </Text>
+            <Text style={s.gapStage}>{stage}</Text>
+            {NUTRIENT_META.map(({ key, label_sq, label_en, unit }) => {
+              const actual  = actuals[key] ?? 0;
+              const target  = targets[key as keyof typeof targets] ?? 1;
+              const pct     = Math.min(1, hasData ? actual / target : 0);
+              const barColor = pct >= 0.8 ? '#3AAB72' : pct >= 0.4 ? '#F4A62C' : '#E05252';
+              return (
+                <View key={key} style={s.gapRow}>
+                  <Text style={s.gapLabel}>{language === 'sq-AL' ? label_sq : label_en}</Text>
+                  <View style={s.gapBarTrack}>
+                    <View style={[s.gapBarFill, { width: `${Math.round(pct * 100)}%` as `${number}%`, backgroundColor: barColor }]} />
+                  </View>
+                  <Text style={s.gapValues}>
+                    {hasData ? `${Math.round(actual)}` : '—'}/{target}{unit}
+                  </Text>
+                </View>
+              );
+            })}
+            {!hasData && (
+              <Text style={s.gapHint}>
+                {language === 'sq-AL' ? 'Shënoni vaktet si të gatuar për të parë progresin.' : 'Mark meals as cooked to see progress.'}
+              </Text>
+            )}
+          </Surface>
+        );
+      })()}
 
       {/* Guest prompt */}
       {!user && (
@@ -494,6 +547,20 @@ const s = StyleSheet.create({
   historyEntryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyCheck: { fontSize: 14, color: '#6ECAC0', fontWeight: '800' },
   historyRecipe: { flex: 1, fontSize: 14, color: '#1A1714', fontWeight: '600' },
+
+  gapCard: {
+    borderRadius: 24, backgroundColor: '#FEFFFE',
+    padding: 16, gap: 10,
+    borderWidth: 1, borderColor: '#D8F0EE',
+  },
+  gapTitle: { fontSize: 18, fontWeight: '800', color: '#111111' },
+  gapStage: { fontSize: 12, fontWeight: '700', color: '#6E9A98', textTransform: 'uppercase', marginTop: -6 },
+  gapRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  gapLabel: { fontSize: 13, fontWeight: '600', color: '#3D3530', width: 84 },
+  gapBarTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: '#E8F5F4', overflow: 'hidden' },
+  gapBarFill: { height: 10, borderRadius: 5, minWidth: 4 },
+  gapValues: { fontSize: 11, fontWeight: '700', color: '#6E6560', width: 68, textAlign: 'right' },
+  gapHint: { fontSize: 12, color: '#9E9590', textAlign: 'center', marginTop: 4 },
 
   streakCard: {
     borderRadius: 28, backgroundColor: '#FFF9EC',
