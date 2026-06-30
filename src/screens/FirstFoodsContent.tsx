@@ -387,8 +387,6 @@ export function FirstFoodsContent() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const REACTIONS: FoodReaction[] = ['loved', 'neutral', 'rejected', 'allergy'];
-
 const s = StyleSheet.create({
   scroll: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 48, gap: 18 },
 
