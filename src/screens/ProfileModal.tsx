@@ -504,15 +504,17 @@ export function ProfileModal({ visible, onClose }: Props) {
         </KeyboardAvoidingView>
       </SafeAreaView>
       </SafeAreaProvider>
-      <FoodTrackerModal visible={foodTrackerOpen} onClose={() => setFoodTrackerOpen(false)} />
-      <GrowthTrackerModal visible={growthTrackerOpen} onClose={() => setGrowthTrackerOpen(false)} />
-      <AllergenProtocolModal visible={allergenOpen} onClose={() => setAllergenOpen(false)} />
-      <PortionGuideModal visible={portionOpen} onClose={() => setPortionOpen(false)} />
-      <BabyProfileSwitcher
-        visible={profileSwitcherOpen}
-        onClose={() => setProfileSwitcherOpen(false)}
-        onSwitch={(p) => { setActiveProfile(p); setProfileSwitcherOpen(false); }}
-      />
+      {foodTrackerOpen && <FoodTrackerModal visible onClose={() => setFoodTrackerOpen(false)} />}
+      {growthTrackerOpen && <GrowthTrackerModal visible onClose={() => setGrowthTrackerOpen(false)} />}
+      {allergenOpen && <AllergenProtocolModal visible onClose={() => setAllergenOpen(false)} />}
+      {portionOpen && <PortionGuideModal visible onClose={() => setPortionOpen(false)} />}
+      {profileSwitcherOpen && (
+        <BabyProfileSwitcher
+          visible
+          onClose={() => setProfileSwitcherOpen(false)}
+          onSwitch={(p) => { setActiveProfile(p); setProfileSwitcherOpen(false); }}
+        />
+      )}
     </Modal>
   );
 }

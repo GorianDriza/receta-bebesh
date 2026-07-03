@@ -84,7 +84,7 @@ export function PortionGuideModal({ visible, onClose }: Props) {
   const { userProfile } = useAuth();
 
   const babyStage = userProfile?.babyBirthdate ? computeAgeStage(userProfile.babyBirthdate) : null;
-  const defaultStage: StageId = (babyStage === 'family' ? '12m+' : babyStage) ?? '6-8m';
+  const defaultStage: StageId = babyStage ?? '6-8m';
 
   const [activeStage, setActiveStage] = useState<StageId>(defaultStage);
 
