@@ -40,6 +40,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.driza.recetabebesh',
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
@@ -76,6 +77,7 @@ module.exports = {
     },
     scheme: 'com.driza.recetabebesh',
     plugins: [
+      'expo-apple-authentication',
       'expo-localization',
       '@react-native-community/datetimepicker',
       [

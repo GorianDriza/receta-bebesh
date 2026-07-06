@@ -15,6 +15,7 @@ import { firebaseAuth, mapAuthError } from '../../lib/auth';
 import { getFirebaseConfigErrorMessage, isFirebaseConfigured } from '../../lib/firebase';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
+import { useAppleSignIn } from '../../hooks/useAppleSignIn';
 import { AuthInput } from './AuthInput';
 
 const L = {
@@ -32,6 +33,7 @@ const L = {
     continueGuest: 'Vazhdo si vizitor',
     orDivider: 'ose',
     googleBtn: 'Vazhdo me Google',
+    appleBtn: 'Vazhdo me Apple',
   },
   en: {
     title: 'Welcome back 👶',
@@ -47,6 +49,7 @@ const L = {
     continueGuest: 'Continue as guest',
     orDivider: 'or',
     googleBtn: 'Continue with Google',
+    appleBtn: 'Continue with Apple',
   },
 } as const;
 
@@ -67,6 +70,7 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
   const [showPass, setShowPass] = useState(false);
 
   const google = useGoogleSignIn();
+  const apple = useAppleSignIn();
 
   async function handleLogin() {
     if (!firebaseAuth) {
@@ -159,6 +163,7 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
             {!isFirebaseConfigured && <Text style={s.error}>{firebaseConfigError}</Text>}
             {error != null   && <Text style={s.error}>{error}</Text>}
             {google.error != null && <Text style={s.error}>{google.error}</Text>}
+            {apple.error != null && <Text style={s.error}>{apple.error}</Text>}
             {resetMsg != null && <Text style={s.success}>{resetMsg}</Text>}
 
             <Pressable
@@ -187,6 +192,17 @@ export function LoginScreen({ onGoSignUp, onGuestContinue }: Props) {
               <Text style={s.googleG}>G</Text>
               <Text style={s.googleLabel}>{ll.googleBtn}</Text>
             </Pressable>
+
+            {apple.isAvailable && (
+              <Pressable
+                style={[s.appleBtn, apple.loading && s.btnDisabled]}
+                onPress={() => { apple.clearError(); void apple.signIn(); }}
+                disabled={apple.loading || !firebaseAuth}
+              >
+                <Text style={s.appleIcon}>{''}</Text>
+                <Text style={s.appleLabel}>{ll.appleBtn}</Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={s.switchRow}>
@@ -258,6 +274,14 @@ const s = StyleSheet.create({
   },
   googleG: { fontSize: 18, fontWeight: '800', color: '#EA4335' },
   googleLabel: { fontSize: 16, fontWeight: '700', color: '#1A1714' },
+
+  appleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    borderRadius: 999, paddingVertical: 16,
+    backgroundColor: '#000000',
+  },
+  appleIcon: { fontSize: 18, color: '#FFFFFF' },
+  appleLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
   switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   switchText: { fontSize: 15, color: '#6E6560' },
