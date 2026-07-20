@@ -1,14 +1,44 @@
 {
   "rules": {
     "recipes": {
-      ".read": true,
-      ".write": "auth != null"
+      ".read": "auth != null",
+      ".write": false
     },
+
+    "communityRecipes": {
+      ".read": "auth != null",
+      "$recipeId": {
+        ".write": "auth != null && (!data.exists() || data.child('authorId').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['id', 'authorId', 'title']) && newData.child('authorId').val() === auth.uid"
+      }
+    },
+
     "users": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+
+        "favourites": {
+          "$recipeId": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+
+        "planner": {
+          "$weekKey": {
+            "$day": {
+              "$meal": {
+                ".validate": "newData.hasChildren(['recipeId'])"
+              }
+            }
+          }
+        }
       }
+    },
+
+    "$other": {
+      ".read": false,
+      ".write": false
     }
   }
 }
