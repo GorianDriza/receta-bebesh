@@ -1,0 +1,10 @@
+name: Publish OTA update
+
+jobs:
+  update:
+    type: update # Builds the JS bundle in the cloud (local Hermes is blocked on Windows)
+    environment: production
+    params:
+      channel: production
+      platform: ios
+      message: Gemini free-model fallback for AI features
