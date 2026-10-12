@@ -49,7 +49,8 @@ const SOURCE_CONFIGS = {
 // TRANSLATE_PROVIDER: 'gemini' (default when a key is set) | 'google' (free, lower quality) | 'none'
 // Read lazily: .env is loaded after module init.
 const translateProvider = () => process.env.TRANSLATE_PROVIDER
-  || (process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY ? 'gemini' : 'google');
+  || (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY ? 'claude'
+    : process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY ? 'gemini' : 'google');
 const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
@@ -592,6 +593,77 @@ async function callGeminiWithRetry(apiKey, model, body, maxRetries = 6) {
   }
 }
 
+function translationPrompt(recipe) {
+  return `You are a native Albanian food writer translating baby-food recipes for parents in Albania and Kosovo.
+Translate the recipe below from English into natural, standard Albanian (gjuha standarde).
+Rules:
+- Always use correct Albanian letters (ë, ç). Never drop diacritics.
+- Write the way an Albanian parent or cookbook would say it, not word-for-word. Use common local ingredient names (e.g. "kungull" not "squash" transliterations, "qull tërshëre" for oatmeal porridge).
+- Steps use the polite imperative (e.g. "Qëroni", "Ziejini", "Shtoni").
+- Convert cups/ounces/°F to metric (g, ml, °C) and keep the original amount in brackets only if it helps, e.g. "120 ml (½ filxhan) qumësht".
+- Keep the same number of items in ingredients and steps, in the same order. Drop step numbering like "Step 1:".
+- Title: short and appetising, sentence case.
+Return JSON only with keys: title, summary, ingredients (array of strings), steps (array of strings).
+
+${JSON.stringify({
+    title: recipe.title.en,
+    summary: recipe.summary.en,
+    ingredients: recipe.ingredients.en,
+    steps: recipe.steps.en,
+  })}`;
+}
+
+function applyTranslation(recipe, translated, provider) {
+  return {
+    ...recipe,
+    title:       createLocalizedText(recipe.title.en, translated.title || recipe.title.en),
+    summary:     createLocalizedText(recipe.summary.en, translated.summary || recipe.summary.en),
+    ingredients: createLocalizedTextList(recipe.ingredients.en,
+      Array.isArray(translated.ingredients) ? translated.ingredients.map(String) : []),
+    steps:       createLocalizedTextList(recipe.steps.en,
+      Array.isArray(translated.steps) ? translated.steps.map(String) : []),
+    translation: { status: 'machine', provider, reviewedBy: null },
+    updatedAt:   new Date().toISOString(),
+  };
+}
+
+const CLAUDE_MODEL = () => process.env.CLAUDE_MODEL || 'claude-opus-5-5';
+const TRANSLATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    summary: { type: 'string' },
+    ingredients: { type: 'array', items: { type: 'string' } },
+    steps: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['title', 'summary', 'ingredients', 'steps'],
+  additionalProperties: false,
+};
+
+async function translateRecipeWithClaude(recipe) {
+  const Anthropic = require('@anthropic-ai/sdk');
+  // SDK retries 429/5xx itself
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY });
+  const model = CLAUDE_MODEL();
+  try {
+    const response = await client.messages.create({
+      model,
+      max_tokens: 16000,
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: TRANSLATION_SCHEMA } },
+      messages: [{ role: 'user', content: translationPrompt(recipe) }],
+    });
+    if (response.stop_reason !== 'end_turn') {
+      console.warn(`  Claude stopped (${response.stop_reason}) for "${recipe.title.en}"`);
+      return recipe;
+    }
+    const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    return applyTranslation(recipe, JSON.parse(text), `claude:${model}`);
+  } catch (err) {
+    console.warn(`  Claude skipped for "${recipe.title.en}": ${err.message}`);
+    return recipe;
+  }
+}
+
 async function translateRecipeWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
   const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash';
@@ -604,23 +676,7 @@ async function translateRecipeWithGemini(recipe) {
     payload = await callGeminiWithRetry(apiKey, model, {
       contents: [{
         parts: [{
-          text: `You are a native Albanian food writer translating baby-food recipes for parents in Albania and Kosovo.
-Translate the recipe below from English into natural, standard Albanian (gjuha standarde).
-Rules:
-- Always use correct Albanian letters (ë, ç). Never drop diacritics.
-- Write the way an Albanian parent or cookbook would say it, not word-for-word. Use common local ingredient names (e.g. "kungull" not "squash" transliterations, "qull tërshëre" for oatmeal porridge).
-- Steps use the polite imperative (e.g. "Qëroni", "Ziejini", "Shtoni").
-- Convert cups/ounces/°F to metric (g, ml, °C) and keep the original amount in brackets only if it helps, e.g. "120 ml (½ filxhan) qumësht".
-- Keep the same number of items in ingredients and steps, in the same order. Drop step numbering like "Step 1:".
-- Title: short and appetising, sentence case.
-Return JSON only with keys: title, summary, ingredients (array of strings), steps (array of strings).
-
-${JSON.stringify({
-            title: recipe.title.en,
-            summary: recipe.summary.en,
-            ingredients: recipe.ingredients.en,
-            steps: recipe.steps.en,
-          })}`,
+          text: translationPrompt(recipe),
         }],
       }],
       generationConfig: { temperature: 0.3, maxOutputTokens: 8192, responseMimeType: 'application/json' },
@@ -644,17 +700,7 @@ ${JSON.stringify({
     return recipe;
   }
 
-  return {
-    ...recipe,
-    title:       createLocalizedText(recipe.title.en, translated.title || recipe.title.en),
-    summary:     createLocalizedText(recipe.summary.en, translated.summary || recipe.summary.en),
-    ingredients: createLocalizedTextList(recipe.ingredients.en,
-      Array.isArray(translated.ingredients) ? translated.ingredients.map(String) : []),
-    steps:       createLocalizedTextList(recipe.steps.en,
-      Array.isArray(translated.steps) ? translated.steps.map(String) : []),
-    translation: { status: 'machine', provider: `gemini:${model}`, reviewedBy: null },
-    updatedAt:   new Date().toISOString(),
-  };
+  return applyTranslation(recipe, translated, `gemini:${model}`);
 }
 
 async function estimateNutritionWithGemini(recipe) {
@@ -701,6 +747,7 @@ async function estimateNutritionWithGemini(recipe) {
 
 async function translateRecipe(recipe) {
   if (translateProvider() === 'none') return recipe;
+  if (translateProvider() === 'claude') return translateRecipeWithClaude(recipe);
   if (translateProvider() === 'gemini') return translateRecipeWithGemini(recipe);
   // Default: free Google Translate, with Gemini fallback if key available
   try {
@@ -1267,16 +1314,19 @@ async function backfillNutrition() {
 async function retranslateAll({ dryRun, retranslateLimit, force }) {
   loadDotEnvFile(path.join(process.cwd(), '.env'));
   requireFirebaseEnv();
-  const model = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash';
-  if (!(process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY)) {
-    throw new Error('GEMINI_API_KEY required for --retranslate');
+  const useClaude = translateProvider() === 'claude';
+  if (!useClaude && translateProvider() !== 'gemini') {
+    throw new Error('ANTHROPIC_API_KEY or GEMINI_API_KEY required for --retranslate');
   }
+  const model = useClaude ? CLAUDE_MODEL() : (process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash');
+  const provider = `${useClaude ? 'claude' : 'gemini'}:${model}`;
+  const translate = useClaude ? translateRecipeWithClaude : translateRecipeWithGemini;
 
   const database = getDatabase(getFirebaseApp());
   const snapshot = await get(ref(database, 'recipes'));
   const todo = Object.values(snapshot.val() ?? {})
     .filter(Boolean)
-    .filter((r) => force || r.translation?.provider !== `gemini:${model}`)
+    .filter((r) => force || r.translation?.provider !== provider)
     .slice(0, retranslateLimit);
   console.log(`Re-translating ${todo.length} recipes with ${model}${dryRun ? ' (dry run)' : ''}...`);
 
@@ -1290,7 +1340,7 @@ async function retranslateAll({ dryRun, retranslateLimit, force }) {
       ingredients: { en: r.ingredients?.en ?? [] },
       steps: { en: r.steps?.en ?? [] },
     };
-    const out = await translateRecipeWithGemini(base);
+    const out = await translate(base);
     if (out === base) { failed++; continue; }
     ok++;
     const patch = { title: out.title, summary: out.summary, ingredients: out.ingredients, steps: out.steps, translation: out.translation };

@@ -9,7 +9,7 @@ import { RecipeRecord } from '../lib/recipes';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
-import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
+import { API_KEY, geminiFetch } from '../lib/geminiPlan';
 
 // ── Ingredient catalogue ────────────────────────────────────────────────────
 
@@ -92,9 +92,7 @@ type GeneratedRecipe = {
 async function generateRecipe(ingredients: string[], language: string): Promise<GeneratedRecipe> {
   if (!API_KEY) throw new Error('Gemini API key not configured');
   const langNote = language === 'sq-AL' ? 'Write the recipe in Albanian.' : 'Write the recipe in English.';
-  const res = await fetch(
-    GEMINI_URL,
-    {
+  const res = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

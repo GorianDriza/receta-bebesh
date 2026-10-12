@@ -11,7 +11,7 @@ import { UserRecipeRecord, saveCommunityRecipe } from '../lib/userRecipes';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
-import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
+import { API_KEY, geminiFetch } from '../lib/geminiPlan';
 
 type Step = 'pick' | 'scanning' | 'editing' | 'saving' | 'done';
 
@@ -35,9 +35,7 @@ function slugify(s: string): string {
 async function extractRecipeFromImage(base64: string, mimeType: string, language: string): Promise<DraftRecipe> {
   if (!API_KEY) throw new Error('Gemini API key not set');
 
-  const res = await fetch(
-    GEMINI_URL,
-    {
+  const res = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

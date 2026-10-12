@@ -2,8 +2,29 @@ import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from './recipes';
 
 export const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-3.5-flash';
-export const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+// Free tier: each model has its own small daily quota, so fall through several
+// before giving up. ponytail: client-side key + free quota; move behind a server if usage grows.
+const MODELS = [...new Set([
+  process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-3.1-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
+  'gemini-3-flash-preview',
+])];
+
+export async function geminiFetch(init: RequestInit): Promise<Response> {
+  let res: Response | undefined;
+  for (const model of MODELS) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
+      init,
+    );
+    // 429 = quota used up, 5xx = overloaded, 404 = model retired → try the next one
+    if (res.status !== 429 && res.status !== 404 && res.status < 500) return res;
+  }
+  return res!;
+}
 
 export type DayPlanSuggestion = Partial<Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string>>;
 export type WeekPlanSuggestion = Partial<Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', DayPlanSuggestion>>;
@@ -52,9 +73,7 @@ Create a 7-day meal plan for a baby. Use the available recipes. Return ONLY vali
 }
 Only use recipe IDs from the list. Vary the plan across days.`;
 
-  const res = await fetch(
-    GEMINI_URL,
-    {
+  const res = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -7,7 +7,7 @@ import { RecipeRecord } from '../lib/recipes';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
-import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
+import { API_KEY, geminiFetch } from '../lib/geminiPlan';
 
 type ScanResult = {
   foodName: string;
@@ -38,9 +38,7 @@ Return ONLY valid JSON with these exact keys:
 }
 Estimate nutrition per baby serving (~150g). If not baby food, still analyze the food shown.`;
 
-  const res = await fetch(
-    GEMINI_URL,
-    {
+  const res = await geminiFetch({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
