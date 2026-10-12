@@ -5,7 +5,6 @@ import { getLocales } from 'expo-localization';
 import {
   AppLanguage,
   isSupportedLanguage,
-  supportedLanguages,
   translations,
 } from '../i18n/translations';
 
@@ -49,8 +48,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
         if (storedLanguage && isSupportedLanguage(storedLanguage)) {
           setLanguageState(storedLanguage);
-        } else if (!supportedLanguages.includes(deviceLanguage)) {
-          setLanguageState('sq-AL');
+        } else {
+          setLanguageState(deviceLanguage);
         }
       } finally {
         setIsHydrated(true);

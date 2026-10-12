@@ -19,7 +19,7 @@ const MEAL_LABELS = {
   breakfast: { 'sq-AL': '🍳 Mëngjes', en: '🍳 Breakfast' },
   lunch:     { 'sq-AL': '🥗 Drekë',   en: '🥗 Lunch'    },
   dinner:    { 'sq-AL': '🍲 Darkë',   en: '🍲 Dinner'   },
-  snack:     { 'sq-AL': '🍓 Meze',    en: '🍓 Snack'    },
+  snack:     { 'sq-AL': '🍓 Vakt i lehtë',    en: '🍓 Snack'    },
 };
 
 const MEAL_ORDER: Array<keyof typeof MEAL_LABELS> = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -197,7 +197,7 @@ export function AIPlanModal({ visible, onClose, recipes, babyAgeMonths }: Props)
                   )}
                   <Pressable style={s.shareBtn} onPress={handleShare}>
                     <Text style={s.shareBtnLabel}>
-                      {language === 'sq-AL' ? '↑ Ndaj planin' : '↑ Share plan'}
+                      {language === 'sq-AL' ? '↑ Shpërndaj planin' : '↑ Share plan'}
                     </Text>
                   </Pressable>
                 </View>

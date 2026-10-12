@@ -1,10 +1,14 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({}));
+jest.mock('firebase/database', () => ({}));
+jest.mock('../lib/firebase', () => ({ firebaseDatabase: null }));
+
 import {
   filterAndSortRecipes,
   inferRecipeMealType,
   isRecipeCompatibleWithAge,
   recipeMatchesSearch,
 } from '../lib/recipeFilters';
-import { RecipeRecord } from '../lib/recipes';
+import { normalizeRecipe, RecipeRecord } from '../lib/recipes';
 
 function recipe(overrides: Partial<RecipeRecord>): RecipeRecord {
   return {
@@ -82,5 +86,16 @@ describe('recipe filtering helpers', () => {
     });
 
     expect(result.map((item) => item.id)).toEqual(['fast', 'slow']);
+  });
+
+  it('does not crash on records where Firebase dropped empty fields', () => {
+    const raw = { id: 'bare', mealType: 'unknown', ageStage: '6-8m', title: { en: 'Pear mash' } } as unknown as RecipeRecord;
+    const r = normalizeRecipe(raw);
+
+    expect(r.title['sq-AL']).toBe('Pear mash');
+    expect(() => filterAndSortRecipes([r], {
+      ageFilter: '6-8m', mealFilter: 'puree', timeFilter: 'quick', difficultyFilter: 'any',
+      sortMode: 'az', searchQuery: 'pear', hideAllergens: true, reactionTerms: ['egg'], language: 'sq-AL',
+    })).not.toThrow();
   });
 });

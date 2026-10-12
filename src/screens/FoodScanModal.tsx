@@ -7,8 +7,7 @@ import { RecipeRecord } from '../lib/recipes';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL   = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-2.0-flash-lite';
+import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
 
 type ScanResult = {
   foodName: string;
@@ -40,7 +39,7 @@ Return ONLY valid JSON with these exact keys:
 Estimate nutrition per baby serving (~150g). If not baby food, still analyze the food shown.`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+    GEMINI_URL,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,13 +101,13 @@ export function FoodScanModal({ visible, onClose, allRecipes }: Props) {
     analyzing:   language === 'sq-AL' ? 'Duke analizuar...' : 'Analyzing...',
     detected:    language === 'sq-AL' ? 'Ushqimi i zbuluar' : 'Food detected',
     ingredients: language === 'sq-AL' ? 'Përbërësit' : 'Ingredients',
-    nutrition:   language === 'sq-AL' ? 'Vlera ushqyese (racion bebje)' : 'Nutrition (baby serving)',
+    nutrition:   language === 'sq-AL' ? 'Vlera ushqyese (për një racion)' : 'Nutrition (baby serving)',
     ageFor:      language === 'sq-AL' ? 'Mosha e rekomanduar' : 'Recommended age',
     tips:        language === 'sq-AL' ? 'Këshillë' : 'Tip',
     recipes:     language === 'sq-AL' ? 'Receta të ngjashme' : 'Matching recipes',
     noMatch:     language === 'sq-AL' ? 'Nuk u gjetën receta të ngjashme.' : 'No matching recipes found.',
     close:       language === 'sq-AL' ? 'Mbyll' : 'Close',
-    noKey:       language === 'sq-AL' ? 'Gemini API key nuk është konfiguruar.' : 'Gemini API key not configured.',
+    noKey:       language === 'sq-AL' ? 'Shërbimi AI nuk është i disponueshëm tani.' : 'Gemini API key not configured.',
   };
 
   async function pick(fromCamera: boolean) {
@@ -249,7 +248,7 @@ export function FoodScanModal({ visible, onClose, allRecipes }: Props) {
                       {result.nutrition.carbsG != null && (
                         <View style={s.nutriCell}>
                           <Text style={s.nutriVal}>{result.nutrition.carbsG}g</Text>
-                          <Text style={s.nutriKey}>{language === 'sq-AL' ? 'Karboh.' : 'Carbs'}</Text>
+                          <Text style={s.nutriKey}>{language === 'sq-AL' ? 'Karbohidr.' : 'Carbs'}</Text>
                         </View>
                       )}
                       {result.nutrition.fatG != null && (

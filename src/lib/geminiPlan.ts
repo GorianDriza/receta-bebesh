@@ -1,8 +1,9 @@
 import { AppLanguage } from '../i18n/translations';
 import { RecipeRecord } from './recipes';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL   = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-2.0-flash-lite';
+export const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-3.5-flash';
+export const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
 
 export type DayPlanSuggestion = Partial<Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string>>;
 export type WeekPlanSuggestion = Partial<Record<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun', DayPlanSuggestion>>;
@@ -52,7 +53,7 @@ Create a 7-day meal plan for a baby. Use the available recipes. Return ONLY vali
 Only use recipe IDs from the list. Vary the plan across days.`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+    GEMINI_URL,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

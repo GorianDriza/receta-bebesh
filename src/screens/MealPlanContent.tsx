@@ -1,7 +1,6 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { MilestoneBanner } from '../components/MilestoneBanner';
@@ -9,14 +8,12 @@ import { PlannerPickerSheet } from '../components/PlannerPickerSheet';
 import { RecipeCardSkeleton } from '../components/Skeleton';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { addFavourite, getFavouriteIds, removeFavourite } from '../lib/favourites';
-import { fetchRecipes, getRecipeCacheMeta, RecipeRecord } from '../lib/recipes';
+import { fetchRecipes, RecipeRecord } from '../lib/recipes';
 import { fetchCommunityRecipes, deleteCommunityRecipe, isCommunityRecipe, UserRecipeRecord } from '../lib/userRecipes';
 import {
   filterAndSortRecipes,
   getRecipeDurationMinutes,
-  getRecipeStepCount,
   RecipeAgeFilter,
-  RecipeDifficultyFilter,
   RecipeMealFilter,
   RecipeSortMode,
   RecipeTimeFilter,
@@ -56,18 +53,9 @@ function durationLabel(r: RecipeRecord): string {
   return mins != null ? `${mins} min` : '';
 }
 
-function difficultyLabel(r: RecipeRecord): { label: string; color: string } | null {
-  const steps = getRecipeStepCount(r);
-  if (steps === 0) return null;
-  if (steps <= 3) return { label: '● Easy', color: '#3AAB72' };
-  if (steps <= 6) return { label: '●● Med', color: '#F4A62C' };
-  return { label: '●●● Hard', color: '#E05252' };
-}
-
 type FilterId = RecipeAgeFilter;
 type MealFilter = RecipeMealFilter;
 type TimeFilter = RecipeTimeFilter;
-type DiffFilter = RecipeDifficultyFilter;
 type SortMode = RecipeSortMode;
 
 type Props = { onAvatarPress?: () => void; onLoginRequired?: () => void; onShoppingPress?: () => void };
@@ -80,7 +68,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [loading, setLoading]         = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
   const [error, setError]             = useState<string | null>(null);
-  const [cacheDate, setCacheDate]     = useState<number | null>(null);
   const [selected, setSelected]       = useState<RecipeRecord | null>(null);
   const [favouriteIds, setFavIds]     = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,7 +90,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
   const [ageFilter, setAgeFilter]   = useState<FilterId>(defaultFilter);
   const [mealFilter, setMealFilter] = useState<MealFilter>('any');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('any');
-  const [diffFilter, setDiffFilter] = useState<DiffFilter>('any');
   const [sortMode, setSortMode]     = useState<SortMode>('default');
   const [showAll, setShowAll]       = useState(false);
 
@@ -122,7 +108,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         if (!mounted) return;
         // Community recipes first so they appear at the top
         startTransition(() => setRecipes([...community, ...scraped]));
-        getRecipeCacheMeta().then((meta) => { if (mounted && meta) setCacheDate(meta.cachedAt); }).catch(() => {});
       })
       .catch((err) => { if (mounted) setError(err instanceof Error ? err.message : 'Could not load recipes.'); })
       .finally(() => { if (mounted) { setLoading(false); setRefreshing(false); } });
@@ -189,7 +174,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     ageFilter,
     mealFilter,
     timeFilter,
-    difficultyFilter: diffFilter,
+    difficultyFilter: 'any',
     sortMode,
     favouriteIds,
     ratingsMap,
@@ -197,7 +182,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     hideAllergens,
     reactionTerms,
     language,
-  }), [recipes, ageFilter, mealFilter, timeFilter, diffFilter, sortMode, favouriteIds, ratingsMap, searchQuery, hideAllergens, reactionTerms, language]);
+  }), [recipes, ageFilter, mealFilter, timeFilter, sortMode, favouriteIds, ratingsMap, searchQuery, hideAllergens, reactionTerms, language]);
 
   const displayed = useMemo(
     () => showAll ? filteredRecipes : filteredRecipes.slice(0, 5),
@@ -262,9 +247,9 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
     { id: 'breakfast',   label: language === 'sq-AL' ? '🍳 Mëngjes' : '🍳 Breakfast' },
     { id: 'lunch',       label: language === 'sq-AL' ? '🥗 Drekë' : '🥗 Lunch' },
     { id: 'dinner',      label: language === 'sq-AL' ? '🍲 Darkë' : '🍲 Dinner' },
-    { id: 'snack',       label: language === 'sq-AL' ? '🍓 Meze' : '🍓 Snack' },
+    { id: 'snack',       label: language === 'sq-AL' ? '🍓 Vakt i lehtë' : '🍓 Snack' },
     { id: 'puree',       label: language === 'sq-AL' ? '🥣 Pure' : '🥣 Puree' },
-    { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Gishta' : '🫓 Finger food' },
+    { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Me dorë' : '🫓 Finger food' },
   ];
 
   return (
@@ -435,7 +420,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           return (
             <View style={s.recentSection}>
               <Text style={s.recentHeading}>
-                {language === 'sq-AL' ? '🍳 Gatuat Fundit' : '🍳 Recently Cooked'}
+                {language === 'sq-AL' ? '🍳 Gatuar së fundi' : '🍳 Recently Cooked'}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.recentRow}>
                 {recent.map((recipe) => {
@@ -465,11 +450,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
               {language === 'sq-AL' ? 'Recetat' : 'Recipes'}
               {recipes.length > 0 && <Text style={s.recipeCount}> ({recipes.length})</Text>}
             </Text>
-            {cacheDate != null && (
-              <Text style={s.cacheHint}>
-                {language === 'sq-AL' ? '📦 Ruajtur lokalisht' : '📦 Loaded from cache'}
-              </Text>
-            )}
           </View>
           <View style={s.sectionActions}>
             {recipes.length > 0 && (
@@ -514,13 +494,13 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         </View>
 
         {/* ── Result count ── */}
-        {(searchQuery.trim() || ageFilter !== 'all' || mealFilter !== 'any' || timeFilter !== 'any' || diffFilter !== 'any') && (
+        {(searchQuery.trim() || ageFilter !== 'all' || mealFilter !== 'any' || timeFilter !== 'any') && (
           <Text style={s.resultCount}>
-            {displayed.length === 0
+            {filteredRecipes.length === 0
               ? (language === 'sq-AL' ? 'Asnjë recetë e gjetur' : 'No recipes found')
               : (language === 'sq-AL'
-                ? `${showAll ? displayed.length : Math.min(displayed.length, 5)} nga ${displayed.length} receta`
-                : `${showAll ? displayed.length : Math.min(displayed.length, 5)} of ${displayed.length} recipes`)}
+                ? `${displayed.length} nga ${filteredRecipes.length} receta`
+                : `${displayed.length} of ${filteredRecipes.length} recipes`)}
           </Text>
         )}
 
@@ -569,25 +549,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
           ))}
         </ScrollView>
 
-        {/* ── Difficulty filter chips ── */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          {([
-            { id: 'any',  label: language === 'sq-AL' ? 'Të gjitha' : 'All' },
-            { id: 'easy', label: '● Easy' },
-            { id: 'med',  label: '●● Med' },
-            { id: 'hard', label: '●●● Hard' },
-          ] as const).map((f) => (
-            <Pressable
-              key={f.id}
-              style={[s.filterChip, s.filterChipSmall, diffFilter === f.id && s.filterChipOn]}
-              onPress={() => { setDiffFilter(f.id); setShowAll(false); }}
-            >
-              <Text style={[s.filterChipText, s.filterChipTextSmall, diffFilter === f.id && s.filterChipTextOn]}>
-                {f.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         {/* ── Allergen filter toggle ── */}
         {reactionCount > 0 && (
@@ -620,12 +581,12 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
         {!loading && error == null && recipes.length === 0 && (
           <Surface style={s.noticeCard} elevation={0}>
             <Text style={s.noticeTitle}>
-              {language === 'sq-AL' ? 'Nuk ka receta ende' : 'No recipes yet'}
+              {language === 'sq-AL' ? 'Recetat nuk u ngarkuan' : "Couldn't load recipes"}
             </Text>
             <Text style={s.noticeBody}>
               {language === 'sq-AL'
-                ? 'Ekzekuto skriptën e importit: npm run import:babyfoode -- --limit=50'
-                : 'Run the import script: npm run import:babyfoode -- --limit=50'}
+                ? 'Kontrolloni lidhjen me internetin dhe tërhiqni poshtë për të provuar përsëri.'
+                : 'Check your internet connection and pull down to try again.'}
             </Text>
           </Surface>
         )}
@@ -648,13 +609,11 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
             const p = paletteFor(i);
             const imgUrl = recipe.image?.downloadUrl ?? recipe.image?.sourceUrl ?? null;
             const dur = durationLabel(recipe);
-            const diff = difficultyLabel(recipe);
             const isFav = favouriteIds.has(recipe.id);
             const isCommunity = isCommunityRecipe(recipe);
             const isOwner = isCommunity && user?.uid === (recipe as UserRecipeRecord).authorId;
             return (
-              <Animated.View key={recipe.id} entering={FadeInDown.delay(i * 70).springify().damping(14)}>
-                <Pressable onPress={() => setSelected(recipe)}>
+              <Pressable key={recipe.id} onPress={() => setSelected(recipe)}>
                   <Surface style={[s.mealCard, { backgroundColor: p.bg }, isCommunity && s.mealCardCommunity]} elevation={0}>
                     <View style={[s.mealSquare, { backgroundColor: p.accent }]} />
                     <View style={[s.mealPill,   { backgroundColor: `${p.accent}CC` }]} />
@@ -703,7 +662,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                         )}
                         {isCommunity && (
                           <View style={s.communityBadge}>
-                            <Text style={s.communityBadgeText}>👥 Community</Text>
+                            <Text style={s.communityBadgeText}>{language === 'sq-AL' ? '👥 Nga prindërit' : '👥 From parents'}</Text>
                           </View>
                         )}
                       </View>
@@ -720,9 +679,6 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                             <Text style={s.ratingPillText}>{'★'.repeat(ratingsMap[recipe.id])}</Text>
                           </View>
                         )}
-                        {diff != null && (
-                          <Text style={[s.diffText, { color: diff.color }]}>{diff.label}</Text>
-                        )}
                       </View>
                     </View>
 
@@ -737,8 +693,7 @@ export function MealPlanContent({ onAvatarPress, onLoginRequired, onShoppingPres
                       </View>
                     </View>
                   </Surface>
-                </Pressable>
-              </Animated.View>
+              </Pressable>
             );
           })}
         </View>
@@ -838,7 +793,6 @@ const s = StyleSheet.create({
   sortBtnLabel: { fontSize: 14, fontWeight: '800', color: '#3D3530' },
   sectionTitle:  { fontSize: 31, lineHeight: 34, fontWeight: '800', letterSpacing: -1.2, color: '#111111' },
   recipeCount:   { fontSize: 20, fontWeight: '500', color: '#9E9590' },
-  cacheHint:     { fontSize: 12, color: '#B0A9A3', marginTop: 2 },
   seeAll:        { fontSize: 18, color: '#6A6475' },
 
   resultCount: { fontSize: 13, color: '#9E9590', fontWeight: '600', paddingLeft: 2 },
@@ -897,7 +851,6 @@ const s = StyleSheet.create({
   ratingPill: { alignSelf: 'flex-start', backgroundColor: '#FFF8E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   ratingPillText: { fontSize: 13, color: '#FFB800', letterSpacing: 1 },
   durationText: { marginLeft: -2, fontSize: 17, color: '#111111', fontWeight: '600' },
-  diffText: { fontSize: 11, fontWeight: '700', alignSelf: 'center' },
 
   rotdCard: {
     borderRadius: 28, backgroundColor: '#FFFDF0',

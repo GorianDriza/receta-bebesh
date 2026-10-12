@@ -153,9 +153,9 @@ export function QuickContent({ onLoginRequired }: Props) {
             { id: 'breakfast',   label: language === 'sq-AL' ? '🍳 Mëngjes' : '🍳 Breakfast' },
             { id: 'lunch',       label: language === 'sq-AL' ? '🥗 Drekë' : '🥗 Lunch' },
             { id: 'dinner',      label: language === 'sq-AL' ? '🍲 Darkë' : '🍲 Dinner' },
-            { id: 'snack',       label: language === 'sq-AL' ? '🍓 Meze' : '🍓 Snack' },
+            { id: 'snack',       label: language === 'sq-AL' ? '🍓 Vakt i lehtë' : '🍓 Snack' },
             { id: 'puree',       label: language === 'sq-AL' ? '🥣 Pure' : '🥣 Puree' },
-            { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Gishta' : '🫓 Finger food' },
+            { id: 'finger-food', label: language === 'sq-AL' ? '🫓 Me dorë' : '🫓 Finger food' },
           ] as const).map((f) => (
             <Pressable
               key={f.id}

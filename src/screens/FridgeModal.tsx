@@ -9,8 +9,7 @@ import { RecipeRecord } from '../lib/recipes';
 import { useLanguage } from '../providers/LanguageProvider';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL   = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-2.0-flash-lite';
+import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
 
 // ── Ingredient catalogue ────────────────────────────────────────────────────
 
@@ -94,7 +93,7 @@ async function generateRecipe(ingredients: string[], language: string): Promise<
   if (!API_KEY) throw new Error('Gemini API key not configured');
   const langNote = language === 'sq-AL' ? 'Write the recipe in Albanian.' : 'Write the recipe in English.';
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+    GEMINI_URL,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,18 +141,18 @@ export function FridgeModal({ visible, onClose, allRecipes }: Props) {
   const [detail,     setDetail]     = useState<RecipeRecord | null>(null);
 
   const L = {
-    title:     language === 'sq-AL' ? '🥕 Çfarë kam në frigorifer?' : '🥕 What\'s in my fridge?',
-    hint:      language === 'sq-AL' ? 'Zgjidh përbërësit që ke' : 'Select ingredients you have',
+    title:     language === 'sq-AL' ? '🥕 Çfarë ka në frigorifer?' : '🥕 What\'s in my fridge?',
+    hint:      language === 'sq-AL' ? 'Zgjidhni përbërësit që keni' : 'Select ingredients you have',
     search:    language === 'sq-AL' ? 'Kërko përbërës...' : 'Search ingredient...',
     find:      language === 'sq-AL' ? 'Gjej receta' : 'Find recipes',
-    generate:  language === 'sq-AL' ? '✨ Gjenero recetë me Gemini' : '✨ Generate recipe with Gemini',
+    generate:  language === 'sq-AL' ? '✨ Krijo recetë me AI' : '✨ Generate recipe with Gemini',
     generating:language === 'sq-AL' ? 'Duke gjeneruar...' : 'Generating...',
     noMatch:   language === 'sq-AL' ? 'Nuk u gjetën receta.' : 'No matching recipes found.',
-    tryGen:    language === 'sq-AL' ? 'Provo të gjenerosh një recetë të re me Gemini!' : 'Try generating a custom recipe with Gemini!',
+    tryGen:    language === 'sq-AL' ? 'Provoni të krijoni një recetë të re me AI!' : 'Try generating a custom recipe with Gemini!',
     found:     (n: number) => language === 'sq-AL' ? `${n} receta të gjetura` : `${n} recipes found`,
     close:     language === 'sq-AL' ? 'Mbyll' : 'Close',
     clear:     language === 'sq-AL' ? 'Pastro' : 'Clear',
-    custom:    language === 'sq-AL' ? '✨ Recetë e Gjeneruar' : '✨ Generated Recipe',
+    custom:    language === 'sq-AL' ? '✨ Recetë e krijuar me AI' : '✨ Generated Recipe',
     steps:     language === 'sq-AL' ? 'Hapat:' : 'Steps:',
     ings:      language === 'sq-AL' ? 'Përbërësit:' : 'Ingredients:',
     age:       language === 'sq-AL' ? 'Mosha:' : 'Age:',

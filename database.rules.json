@@ -1,12 +1,12 @@
 {
   "rules": {
     "recipes": {
-      ".read": "auth != null",
+      ".read": true,
       ".write": false
     },
 
     "communityRecipes": {
-      ".read": "auth != null",
+      ".read": true,
       "$recipeId": {
         ".write": "auth != null && (!data.exists() || data.child('authorId').val() === auth.uid)",
         ".validate": "newData.hasChildren(['id', 'authorId', 'title']) && newData.child('authorId').val() === auth.uid"

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Surface, Text } from 'react-native-paper';
 
 import { useAuth } from '../providers/AuthProvider';
+import { useLanguage } from '../providers/LanguageProvider';
 import { LoginScreen } from './auth/LoginScreen';
 import { SignUpScreen } from './auth/SignUpScreen';
 import { isOnboardingDone, OnboardingScreen } from './OnboardingScreen';
@@ -19,17 +20,18 @@ import { ShoppingListModal } from './ShoppingListModal';
 type TabId = 'meals' | 'planner' | 'spark' | 'journal' | 'learn' | 'tracker';
 type AuthView = 'login' | 'signup' | null;
 
-const TABS: Array<{ id: TabId; icon: string; label: string }> = [
-  { id: 'meals',   icon: 'silverware-fork-knife',  label: 'Meals'   },
-  { id: 'planner', icon: 'calendar-month-outline',  label: 'Planner' },
-  { id: 'spark',   icon: 'lightning-bolt',          label: 'Quick'   },
-  { id: 'journal', icon: 'clipboard-text-outline',  label: 'Journal' },
-  { id: 'learn',   icon: 'book-open-page-variant',  label: 'Learn'   },
-  { id: 'tracker', icon: 'sprout',                  label: 'Foods'   },
+const TABS: Array<{ id: TabId; icon: string; sq: string; en: string }> = [
+  { id: 'meals',   icon: 'silverware-fork-knife',  sq: 'Receta',   en: 'Recipes' },
+  { id: 'planner', icon: 'calendar-month-outline', sq: 'Plani',    en: 'Planner' },
+  { id: 'spark',   icon: 'lightning-bolt',         sq: 'Ide',      en: 'Ideas'   },
+  { id: 'journal', icon: 'clipboard-text-outline', sq: 'Ditari',   en: 'Journal' },
+  { id: 'learn',   icon: 'book-open-page-variant', sq: 'Mëso',     en: 'Learn'   },
+  { id: 'tracker', icon: 'sprout',                 sq: 'Ushqimet', en: 'Foods'   },
 ];
 
 export function HomeScreen() {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [activeTab,    setActiveTab]    = useState<TabId>('meals');
   const [showProfile,  setShowProfile]  = useState(false);
   const [authView,     setAuthView]     = useState<AuthView>(null);
@@ -102,7 +104,7 @@ export function HomeScreen() {
               onPress={() => setActiveTab(tab.id)}
             />
             {activeTab === tab.id && (
-              <Text style={s.dockLabel}>{tab.label}</Text>
+              <Text style={s.dockLabel}>{language === 'sq-AL' ? tab.sq : tab.en}</Text>
             )}
           </View>
         ))}

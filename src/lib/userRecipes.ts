@@ -1,7 +1,7 @@
 import { get, ref, remove, update } from 'firebase/database';
 
 import { firebaseDatabase } from './firebase';
-import { RecipeRecord } from './recipes';
+import { normalizeRecipe, RecipeRecord } from './recipes';
 
 export type UserRecipeRecord = RecipeRecord & { authorId: string };
 
@@ -14,6 +14,7 @@ export async function fetchCommunityRecipes(): Promise<UserRecipeRecord[]> {
     if (!snap.exists()) return [];
     return Object.values(snap.val() as Record<string, UserRecipeRecord>)
       .filter(Boolean)
+      .map(normalizeRecipe)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   } catch {
     return [];

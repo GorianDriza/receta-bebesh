@@ -33,7 +33,7 @@ module.exports = {
   expo: {
     name: 'Receta Bebesh',
     slug: 'receta-bebesh',
-    version: '1.0.0',
+    version: '1.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',

@@ -11,8 +11,7 @@ import { UserRecipeRecord, saveCommunityRecipe } from '../lib/userRecipes';
 import { useAuth } from '../providers/AuthProvider';
 import { useLanguage } from '../providers/LanguageProvider';
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL   = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-2.0-flash-lite';
+import { API_KEY, GEMINI_URL } from '../lib/geminiPlan';
 
 type Step = 'pick' | 'scanning' | 'editing' | 'saving' | 'done';
 
@@ -37,7 +36,7 @@ async function extractRecipeFromImage(base64: string, mimeType: string, language
   if (!API_KEY) throw new Error('Gemini API key not set');
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+    GEMINI_URL,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,10 +118,10 @@ export function RecipeScannerModal({ visible, onClose, onSaved }: Props) {
     save:        language === 'sq-AL' ? 'Ruaj recetën' : 'Save recipe',
     saving:      language === 'sq-AL' ? 'Duke ruajtur...' : 'Saving...',
     done:        language === 'sq-AL' ? '✓ Receta u ruajt!' : '✓ Recipe saved!',
-    doneBody:    language === 'sq-AL' ? 'Të gjithë përdoruesit mund ta shohin recetën tënde.' : 'All users can now see your recipe.',
+    doneBody:    language === 'sq-AL' ? 'Recetën tuaj do ta shohin të gjithë prindërit.' : 'All users can now see your recipe.',
     close:       language === 'sq-AL' ? 'Mbyll' : 'Close',
-    loginWarn:   language === 'sq-AL' ? 'Duhet të jesh i kyçur për të ruajtur receta.' : 'You must be logged in to save recipes.',
-    noApiKey:    language === 'sq-AL' ? 'Gemini API key nuk është konfiguruar.' : 'Gemini API key not configured.',
+    loginWarn:   language === 'sq-AL' ? 'Hyni në llogari për të ruajtur receta.' : 'You must be logged in to save recipes.',
+    noApiKey:    language === 'sq-AL' ? 'Shërbimi AI nuk është i disponueshëm tani.' : 'Gemini API key not configured.',
   };
 
   function reset() {

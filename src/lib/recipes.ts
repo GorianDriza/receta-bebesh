@@ -21,7 +21,7 @@ async function saveRecipeCache(recipes: RecipeRecord[]): Promise<void> {
 async function loadRecipeCache(): Promise<RecipeRecord[] | null> {
   try {
     const json = await AsyncStorage.getItem(RECIPE_CACHE_KEY);
-    return json ? (JSON.parse(json) as RecipeRecord[]) : null;
+    return json ? (JSON.parse(json) as RecipeRecord[]).map(normalizeRecipe) : null;
   } catch {
     return null;
   }
@@ -113,6 +113,31 @@ export type RecipeRecord = {
 
 type RecipeMap = Record<string, RecipeRecord>;
 
+// Firebase RTDB drops empty arrays/objects, so records can arrive with missing
+// fields. Fill them in once here so every screen can index safely.
+export function normalizeRecipe<T extends RecipeRecord>(r: T): T {
+  const text = (v?: Partial<LocalizedText>): LocalizedText => {
+    const en = v?.en ?? v?.['sq-AL'] ?? '';
+    return { en, 'sq-AL': v?.['sq-AL'] || en };
+  };
+  const list = (v?: Partial<LocalizedTextList>): LocalizedTextList => {
+    const en = v?.en ?? [];
+    return { en, 'sq-AL': v?.['sq-AL']?.length ? v['sq-AL'] : en };
+  };
+  return {
+    ...r,
+    title: text(r.title),
+    summary: text(r.summary),
+    ingredients: list(r.ingredients),
+    steps: list(r.steps),
+    mealType: r.mealType ?? 'unknown',
+    ageStage: r.ageStage ?? 'family',
+    image: r.image ?? { sourceUrl: null, storagePath: null, downloadUrl: null, contentType: null, mirroredAt: null },
+    createdAt: r.createdAt ?? '',
+    updatedAt: r.updatedAt ?? '',
+  };
+}
+
 export type FetchResult = { recipes: RecipeRecord[]; fromCache: boolean };
 
 export async function fetchRecipes(): Promise<RecipeRecord[]> {
@@ -125,7 +150,7 @@ export async function fetchRecipes(): Promise<RecipeRecord[]> {
     if (!snapshot.exists()) {
       return (await loadRecipeCache()) ?? [];
     }
-    const recipes = Object.values(snapshot.val() as RecipeMap).sort((a, b) =>
+    const recipes = Object.values(snapshot.val() as RecipeMap).filter(Boolean).map(normalizeRecipe).sort((a, b) =>
       b.updatedAt.localeCompare(a.updatedAt),
     );
     await saveRecipeCache(recipes);

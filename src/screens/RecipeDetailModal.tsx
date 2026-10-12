@@ -34,7 +34,7 @@ const LABELS: Record<AppLanguage, {
     ratingTitle: 'Vlerësimi juaj', notePlaceholder: 'Shënime (opsionale)...', noteSaved: '✓ Ruajtur',
     share: 'Ndaj',
     nutrition: 'Vlerat Ushqyese', nutritionNA: 'Vlerat ushqyese nuk janë disponueshme',
-    kcal: 'kcal', protein: 'Proteina', carbs: 'Karboh.', fat: 'Yndyrna',
+    kcal: 'kcal', protein: 'Proteina', carbs: 'Karbohidr.', fat: 'Yndyrna',
     fiber: 'Fibra', iron: 'Hekur', calcium: 'Kalcium', vitC: 'Vit. C',
   },
   en: {

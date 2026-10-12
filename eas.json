@@ -40,12 +40,14 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "goriandriza11@gmail.com"
+        "appleId": "goriandriza11@gmail.com",
+        "ascAppId": "6784595844"
       }
     },
     "production-ios": {
       "ios": {
-        "appleId": "goriandriza11@gmail.com"
+        "appleId": "goriandriza11@gmail.com",
+        "ascAppId": "6784595844"
       }
     }
   }

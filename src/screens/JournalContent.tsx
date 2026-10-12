@@ -220,7 +220,7 @@ export function JournalContent({ onLoginRequired }: Props) {
           <Text style={s.metricLabel}>{t[language].home.consumed}</Text>
           <Text style={s.metricValue}>
             {todayKcal === '—'
-              ? (language === 'sq-AL' ? 'Jo i gjurmuar' : 'Not tracked')
+              ? (language === 'sq-AL' ? 'Pa regjistruar' : 'Not tracked')
               : `${todayKcal} kcal`}
           </Text>
         </View>
@@ -297,7 +297,7 @@ export function JournalContent({ onLoginRequired }: Props) {
         return (
           <Surface style={s.varietyCard} elevation={0}>
             <Text style={s.varietyTitle}>
-              {language === 'sq-AL' ? '📊 Varieteti Javor' : '📊 Weekly Variety'}
+              {language === 'sq-AL' ? '📊 Larmia javore' : '📊 Weekly Variety'}
             </Text>
             <Text style={s.varietySub}>
               {covered.size}/5 {language === 'sq-AL' ? 'grupe ushqimore' : 'food groups'}
@@ -498,7 +498,7 @@ export function JournalContent({ onLoginRequired }: Props) {
       {weekSummary.some((d) => d.count > 0) && (
         <>
           <Text style={s.subHeading}>
-            {language === 'sq-AL' ? 'Javën Kjo' : 'This Week'}
+            {language === 'sq-AL' ? 'Kjo javë' : 'This Week'}
           </Text>
           <View style={s.historyList}>
             {weekSummary.filter((d) => d.entries.length > 0).map((day) => {

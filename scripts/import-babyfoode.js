@@ -1,17 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { initializeApp, getApp, getApps } = require('firebase/app');
-const { get, getDatabase, goOffline, ref, update } = require('firebase/database');
+// Database rules block client writes to recipes/, so the script uses the Admin SDK
+// (service account bypasses rules). These wrappers keep the modular-SDK call shape.
+const getDatabase = (app) => require('firebase-admin/database').getDatabase(app);
+const ref = (db, p) => (p ? db.ref(p) : db.ref());
+const get = (r) => r.once('value');
+const update = (r, value) => r.update(value);
+const goOffline = (db) => db.goOffline();
 
-const FIREBASE_KEYS = [
-  'EXPO_PUBLIC_FIREBASE_API_KEY',
-  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'EXPO_PUBLIC_FIREBASE_DATABASE_URL',
-  'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
-  'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
-  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'EXPO_PUBLIC_FIREBASE_APP_ID',
-];
+const FIREBASE_KEYS = ['EXPO_PUBLIC_FIREBASE_DATABASE_URL'];
+const SERVICE_ACCOUNT_PATH =
+  process.env.FIREBASE_SERVICE_ACCOUNT || path.join(__dirname, '..', 'firebase-service-account.json');
 
 const DEFAULT_SOURCE_KEY = 'babyfoode';
 const DEFAULT_IMPORT_LIMIT = 12;
@@ -47,8 +46,10 @@ const SOURCE_CONFIGS = {
   },
 };
 
-// TRANSLATE_PROVIDER: 'google' (default, free) | 'gemini' | 'none'
-const TRANSLATE_PROVIDER = process.env.TRANSLATE_PROVIDER || 'google';
+// TRANSLATE_PROVIDER: 'gemini' (default when a key is set) | 'google' (free, lower quality) | 'none'
+// Read lazily: .env is loaded after module init.
+const translateProvider = () => process.env.TRANSLATE_PROVIDER
+  || (process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY ? 'gemini' : 'google');
 const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
 const HTTP_TIMEOUT_MS = 30000;
 const DATABASE_TIMEOUT_MS = 45000;
@@ -92,18 +93,15 @@ function requireFirebaseEnv() {
 }
 
 function getFirebaseApp() {
-  const config = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  const { cert, getApps, initializeApp } = require('firebase-admin/app');
+  if (getApps().length > 0) return getApps()[0];
+  if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) {
+    throw new Error(`Service account not found at ${SERVICE_ACCOUNT_PATH} (set FIREBASE_SERVICE_ACCOUNT)`);
+  }
+  return initializeApp({
+    credential: cert(JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_PATH, 'utf8'))),
     databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  };
-
-  return getApps().length > 0 ? getApp() : initializeApp(config);
+  });
 }
 
 function slugify(value) {
@@ -249,8 +247,10 @@ async function translateRecipeWithGoogle(recipe) {
 
 function extractGeminiText(payload) {
   // Standard Gemini generateContent response
-  if (payload?.candidates?.[0]?.content?.parts?.[0]?.text) {
-    return payload.candidates[0].content.parts[0].text;
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (Array.isArray(parts)) {
+    const text = parts.filter((p) => !p.thought && typeof p.text === 'string').map((p) => p.text).join('');
+    if (text) return text;
   }
   // Older/alternate format
   if (Array.isArray(payload?.steps)) {
@@ -559,7 +559,7 @@ function createRecipeIndexPages(pageCount = DEFAULT_DISCOVERY_PAGE_COUNT, source
   return pages;
 }
 
-async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
+async function callGeminiWithRetry(apiKey, model, body, maxRetries = 6) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   let attempt = 0;
   while (attempt <= maxRetries) {
@@ -576,11 +576,11 @@ async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
     } finally {
       clearTimeout(timeoutId);
     }
-    if (response.status === 429) {
+    if (response.status === 429 || response.status >= 500) {
       attempt++;
-      if (attempt > maxRetries) throw new Error(`Gemini 429 after ${maxRetries} retries`);
+      if (attempt > maxRetries) throw new Error(`Gemini ${response.status} after ${maxRetries} retries`);
       const waitMs = Math.min(60000, 5000 * Math.pow(2, attempt));
-      console.log(`  Gemini rate limited — waiting ${waitMs / 1000}s...`);
+      console.log(`  Gemini busy (${response.status}) — waiting ${waitMs / 1000}s...`);
       await sleep(waitMs);
       continue;
     }
@@ -594,7 +594,7 @@ async function callGeminiWithRetry(apiKey, model, body, maxRetries = 3) {
 
 async function translateRecipeWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash';
   if (!apiKey) return recipe;
 
   await sleep(4000); // 15 RPM free tier
@@ -604,7 +604,18 @@ async function translateRecipeWithGemini(recipe) {
     payload = await callGeminiWithRetry(apiKey, model, {
       contents: [{
         parts: [{
-          text: `Translate this recipe from English to Albanian. Return valid JSON only with keys: title, summary, ingredients (array), steps (array). Preserve meaning and units.\n\n${JSON.stringify({
+          text: `You are a native Albanian food writer translating baby-food recipes for parents in Albania and Kosovo.
+Translate the recipe below from English into natural, standard Albanian (gjuha standarde).
+Rules:
+- Always use correct Albanian letters (ë, ç). Never drop diacritics.
+- Write the way an Albanian parent or cookbook would say it, not word-for-word. Use common local ingredient names (e.g. "kungull" not "squash" transliterations, "qull tërshëre" for oatmeal porridge).
+- Steps use the polite imperative (e.g. "Qëroni", "Ziejini", "Shtoni").
+- Convert cups/ounces/°F to metric (g, ml, °C) and keep the original amount in brackets only if it helps, e.g. "120 ml (½ filxhan) qumësht".
+- Keep the same number of items in ingredients and steps, in the same order. Drop step numbering like "Step 1:".
+- Title: short and appetising, sentence case.
+Return JSON only with keys: title, summary, ingredients (array of strings), steps (array of strings).
+
+${JSON.stringify({
             title: recipe.title.en,
             summary: recipe.summary.en,
             ingredients: recipe.ingredients.en,
@@ -612,7 +623,7 @@ async function translateRecipeWithGemini(recipe) {
           })}`,
         }],
       }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192, responseMimeType: 'application/json' },
     });
   } catch (err) {
     console.warn(`  Gemini skipped for "${recipe.title.en}": ${err.message}`);
@@ -648,7 +659,7 @@ async function translateRecipeWithGemini(recipe) {
 
 async function estimateNutritionWithGemini(recipe) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  const model  = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash';
   if (!apiKey || recipe.nutrition) return recipe;
 
   await sleep(2000);
@@ -689,8 +700,8 @@ async function estimateNutritionWithGemini(recipe) {
 }
 
 async function translateRecipe(recipe) {
-  if (TRANSLATE_PROVIDER === 'none') return recipe;
-  if (TRANSLATE_PROVIDER === 'gemini') return translateRecipeWithGemini(recipe);
+  if (translateProvider() === 'none') return recipe;
+  if (translateProvider() === 'gemini') return translateRecipeWithGemini(recipe);
   // Default: free Google Translate, with Gemini fallback if key available
   try {
     return await translateRecipeWithGoogle(recipe);
@@ -1167,10 +1178,10 @@ async function importRecipes(limit, options = {}) {
 
   console.log(`Imported ${records.length} recipes from ${source.siteName}; skipped ${duplicateCount} duplicates and ${pageWithoutRecipeDataCount} pages without recipe data.`);
 
-  if (TRANSLATE_PROVIDER === 'none') {
+  if (translateProvider() === 'none') {
     console.log('Translation disabled (TRANSLATE_PROVIDER=none). Albanian fields mirror English.');
-  } else if (TRANSLATE_PROVIDER === 'gemini') {
-    console.log(`Albanian translations generated with Gemini (model: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite'}).`);
+  } else if (translateProvider() === 'gemini') {
+    console.log(`Albanian translations generated with Gemini (model: ${process.env.GEMINI_MODEL || 'gemini-3.5-flash'}).`);
   } else {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
     console.log(`Albanian translations: Google Translate (free)${geminiKey ? ' + Gemini fallback' : ''}.`);
@@ -1251,8 +1262,61 @@ async function backfillNutrition() {
   goOffline(database);
 }
 
+// Re-translate existing recipes in place (keeps ids, so favourites/planner/ratings stay valid).
+// Skips recipes already translated by the current model, so an interrupted run can resume.
+async function retranslateAll({ dryRun, retranslateLimit, force }) {
+  loadDotEnvFile(path.join(process.cwd(), '.env'));
+  requireFirebaseEnv();
+  const model = process.env.GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash';
+  if (!(process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY)) {
+    throw new Error('GEMINI_API_KEY required for --retranslate');
+  }
+
+  const database = getDatabase(getFirebaseApp());
+  const snapshot = await get(ref(database, 'recipes'));
+  const todo = Object.values(snapshot.val() ?? {})
+    .filter(Boolean)
+    .filter((r) => force || r.translation?.provider !== `gemini:${model}`)
+    .slice(0, retranslateLimit);
+  console.log(`Re-translating ${todo.length} recipes with ${model}${dryRun ? ' (dry run)' : ''}...`);
+
+  let ok = 0;
+  let failed = 0;
+  for (const [i, r] of todo.entries()) {
+    const base = {
+      ...r,
+      title: { en: r.title?.en ?? '' },
+      summary: { en: r.summary?.en ?? '' },
+      ingredients: { en: r.ingredients?.en ?? [] },
+      steps: { en: r.steps?.en ?? [] },
+    };
+    const out = await translateRecipeWithGemini(base);
+    if (out === base) { failed++; continue; }
+    ok++;
+    const patch = { title: out.title, summary: out.summary, ingredients: out.ingredients, steps: out.steps, translation: out.translation };
+    if (dryRun) {
+      console.log(JSON.stringify({ en: r.title?.en, sq: patch.title['sq-AL'], ingredients: patch.ingredients['sq-AL'].slice(0, 4), steps: patch.steps['sq-AL'].slice(0, 2) }, null, 2));
+    } else {
+      await update(ref(database, `recipes/${r.id}`), patch);
+      console.log(`  [${i + 1}/${todo.length}] ${patch.title['sq-AL']}`);
+    }
+  }
+  console.log(`Done. Translated ${ok}, failed ${failed} (re-run to retry failures).`);
+  goOffline(database);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+
+  if (process.argv.includes('--retranslate')) {
+    const limitArg = process.argv.find((a) => a.startsWith('--limit='));
+    await retranslateAll({
+      dryRun: options.dryRun,
+      retranslateLimit: limitArg ? Number(limitArg.split('=')[1]) : Infinity,
+      force: process.argv.includes('--force'),
+    });
+    process.exit(0);
+  }
 
   if (options.backfillNutrition) {
     await backfillNutrition();
@@ -1275,7 +1339,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error(error.message);
+    console.error(error.stack || error.message);
     process.exit(1);
   });
 }
@@ -1297,4 +1361,5 @@ module.exports = {
   normalizeNutrition,
   normalizeRecipe,
   parseArgs,
+  translateRecipeWithGemini,
 };

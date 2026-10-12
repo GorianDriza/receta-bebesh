@@ -34,27 +34,27 @@ const SLIDES = [
     emoji: '🍼',
     bgColor: '#E8F5F3',
     accentColor: '#6ECAC0',
-    titleSq: 'Mirë se vini në\nReceta Bebesh!',
+    titleSq: 'Mirë se erdhët në\nReceta Bebesh!',
     titleEn: 'Welcome to\nReceta Bebesh!',
-    bodySq: 'Recetat më të mira për bebën tuaj, sipas moshës dhe nevojave ushqyese.',
+    bodySq: 'Receta të shëndetshme për bebën tuaj, të përshtatura sipas moshës.',
     bodyEn: 'The best recipes for your baby, tailored by age and nutritional needs.',
   },
   {
     emoji: '📅',
     bgColor: '#FFF5E8',
     accentColor: '#F4A62C',
-    titleSq: 'Planifiko vaktet\njavore',
+    titleSq: 'Planifikoni\nvaktet e javës',
     titleEn: 'Plan weekly\nmeals easily',
-    bodySq: 'Cakto receta për çdo ditë dhe vakt. Gjeneroji një plan me inteligjencë artificiale.',
+    bodySq: 'Caktoni receta për çdo ditë e vakt, ose krijoni një plan me inteligjencë artificiale.',
     bodyEn: 'Assign recipes to any day and meal. Generate an AI-powered weekly plan.',
   },
   {
     emoji: '📈',
     bgColor: '#F0EBFF',
     accentColor: '#7C5CBF',
-    titleSq: 'Gjurmo rritjen\ne bebës',
+    titleSq: 'Ndiqni rritjen\ne bebës',
     titleEn: 'Track your\nbaby\'s growth',
-    bodySq: 'Regjistro pesën dhe gjatësinë. Shiko historikun e gatimit dhe zakoneve ushqyese.',
+    bodySq: 'Regjistroni peshën dhe gjatësinë, dhe ndiqni ushqimet e reja që provon bebja.',
     bodyEn: 'Log weight and height. View cooking history and food introduction progress.',
   },
 ];
@@ -62,7 +62,7 @@ const SLIDES = [
 type Props = { onDone: () => void };
 
 export function OnboardingScreen({ onDone }: Props) {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const sq = language === 'sq-AL';
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -94,6 +94,19 @@ export function OnboardingScreen({ onDone }: Props) {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={[s.root, { backgroundColor: slide.bgColor }]}>
+        <View style={s.langRow}>
+          {(['sq-AL', 'en'] as const).map((lang) => (
+            <Pressable
+              key={lang}
+              style={[s.langChip, language === lang && s.langChipOn]}
+              onPress={() => void setLanguage(lang)}
+            >
+              <Text style={[s.langText, language === lang && s.langTextOn]}>
+                {lang === 'sq-AL' ? '🇦🇱 Shqip' : '🇬🇧 English'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -155,6 +168,11 @@ export function OnboardingScreen({ onDone }: Props) {
 const s = StyleSheet.create({
   root: { flex: 1 },
   scrollView: { flex: 1 },
+  langRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 12 },
+  langChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FFFFFFAA' },
+  langChipOn: { backgroundColor: '#1A1714' },
+  langText: { fontSize: 14, fontWeight: '700', color: '#3D3530' },
+  langTextOn: { color: '#FFFFFF' },
   slide: {
     flex: 1, paddingHorizontal: 32, paddingTop: 60,
     alignItems: 'center', gap: 24,

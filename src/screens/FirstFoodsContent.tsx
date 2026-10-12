@@ -55,7 +55,7 @@ function FoodForm({ initial, onSave, onClose, language }: FormProps) {
     title:     language === 'sq-AL' ? (initial ? 'Ndrysho ushqimin' : 'Shto ushqim të ri') : (initial ? 'Edit food' : 'Add new food'),
     namePh:    language === 'sq-AL' ? 'Emri i ushqimit...' : 'Food name...',
     dateLabel: language === 'sq-AL' ? 'Data e futjes (VVVV-MM-DD)' : 'Date introduced (YYYY-MM-DD)',
-    waitLabel: language === 'sq-AL' ? 'Prit para ushqimit tjetër të ri' : 'Wait before next new food',
+    waitLabel: language === 'sq-AL' ? 'Prisni pak para ushqimit të ri' : 'Wait before next new food',
     notesLabel:language === 'sq-AL' ? 'Shënime (opsionale)' : 'Notes (optional)',
     save:      language === 'sq-AL' ? 'Ruaj' : 'Save',
     cancel:    language === 'sq-AL' ? 'Anulo' : 'Cancel',
@@ -82,7 +82,7 @@ function FoodForm({ initial, onSave, onClose, language }: FormProps) {
       {/* Emoji */}
       <Pressable style={f.emojiBtn} onPress={() => setEmojiGrid((v) => !v)}>
         <Text style={f.emojiBig}>{emoji}</Text>
-        <Text style={f.emojiHint}>{language === 'sq-AL' ? 'Tap për të ndryshuar' : 'Tap to change'}</Text>
+        <Text style={f.emojiHint}>{language === 'sq-AL' ? 'Prekni për ta ndryshuar' : 'Tap to change'}</Text>
       </Pressable>
 
       {emojiGrid && (
@@ -155,7 +155,7 @@ function FoodForm({ initial, onSave, onClose, language }: FormProps) {
         style={[f.input, f.inputMulti]}
         value={notes}
         onChangeText={setNotes}
-        placeholder={language === 'sq-AL' ? 'Si u soll? Çfarë vuri re?' : 'How did it go? Any observations?'}
+        placeholder={language === 'sq-AL' ? 'Si reagoi bebja? Çfarë vutë re?' : 'How did it go? Any observations?'}
         placeholderTextColor="#B0A9A3"
         multiline
         textAlignVertical="top"
@@ -198,7 +198,7 @@ export function FirstFoodsContent() {
   async function handleDelete(id: string) {
     Alert.alert(
       language === 'sq-AL' ? 'Fshi hyrjen?' : 'Delete entry?',
-      language === 'sq-AL' ? 'Kjo veprim nuk mund të kthehet.' : 'This cannot be undone.',
+      language === 'sq-AL' ? 'Ky veprim nuk mund të zhbëhet.' : 'This cannot be undone.',
       [
         { text: language === 'sq-AL' ? 'Anulo' : 'Cancel', style: 'cancel' },
         { text: language === 'sq-AL' ? 'Fshi' : 'Delete', style: 'destructive', onPress: async () => { await deleteFoodEntry(id); load(); } },
@@ -226,14 +226,14 @@ export function FirstFoodsContent() {
       ? (language === 'sq-AL'
           ? `⏳ Prit ${waitDays} ${waitDays === 1 ? 'ditë' : 'ditë'} para ushqimit tjetër të ri`
           : `⏳ Wait ${waitDays} more ${waitDays === 1 ? 'day' : 'days'} before introducing next food`)
-      : (language === 'sq-AL' ? '✅ Mund të futësh ushqim të ri sot!' : '✅ Safe to introduce a new food today!'),
+      : (language === 'sq-AL' ? '✅ Sot mund të provoni një ushqim të ri!' : '✅ Safe to introduce a new food today!'),
     empty:    language === 'sq-AL'
       ? 'Ende nuk keni futur asnjë ushqim.\nShtoni ushqimin e parë të bebes!'
       : "No foods tracked yet.\nAdd your baby's first food!",
     daysAgo:  (n: number) => n === 0
       ? (language === 'sq-AL' ? 'Sot' : 'Today')
       : n === 1
-        ? (language === 'sq-AL' ? '1 ditë më parë' : '1 day ago')
+        ? (language === 'sq-AL' ? 'Dje' : '1 day ago')
         : (language === 'sq-AL' ? `${n} ditë më parë` : `${n} days ago`),
   };
 

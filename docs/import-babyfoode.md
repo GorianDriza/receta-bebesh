@@ -27,3 +27,14 @@ $env:TRANSLATE_PROVIDER='none'; npm run import:babyfoode -- --limit=5 --dry-run
 - `TRANSLATE_PROVIDER=google|gemini|none` controls Albanian translation.
 - `BABYFOODE_SOURCE_URLS=` can provide comma-separated explicit source URLs.
 - Firebase `EXPO_PUBLIC_FIREBASE_*` values are required only when writing imported recipes.
+
+## Re-translate existing recipes
+
+Writes go through the Admin SDK (`firebase-service-account.json`, or set `FIREBASE_SERVICE_ACCOUNT`), because database rules block client writes to `recipes/`.
+
+```bash
+node scripts/import-babyfoode.js --retranslate --dry-run --limit=3   # preview
+node scripts/import-babyfoode.js --retranslate                       # all recipes, resumable
+```
+
+Recipes keep their ids, so favourites, planner entries and ratings stay valid. Recipes already translated by the current `GEMINI_MODEL` are skipped; add `--force` to redo them.

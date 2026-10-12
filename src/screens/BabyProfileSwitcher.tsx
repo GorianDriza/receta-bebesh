@@ -72,7 +72,7 @@ export function BabyProfileSwitcher({ visible, onClose, onSwitch }: Props) {
   async function handleRemove(id: string) {
     Alert.alert(
       sq ? 'Fshi profilin' : 'Delete profile',
-      sq ? 'Jeni i sigurt?' : 'Are you sure?',
+      sq ? 'Jeni të sigurt?' : 'Are you sure?',
       [
         { text: sq ? 'Anulo' : 'Cancel', style: 'cancel' },
         {
@@ -92,7 +92,7 @@ export function BabyProfileSwitcher({ visible, onClose, onSwitch }: Props) {
       <SafeAreaProvider>
         <SafeAreaView style={s.root}>
           <View style={s.header}>
-            <Text style={s.title}>{sq ? 'Profile Bebe' : 'Baby Profiles'}</Text>
+            <Text style={s.title}>{sq ? 'Profilet e bebeve' : 'Baby Profiles'}</Text>
             <IconButton icon="close" size={22} iconColor="#111" onPress={onClose} style={s.icon0} />
           </View>
 
