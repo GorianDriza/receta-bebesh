@@ -1326,12 +1326,14 @@ async function retranslateAll({ dryRun, retranslateLimit, force }) {
   const snapshot = await get(ref(database, 'recipes'));
   const todo = Object.values(snapshot.val() ?? {})
     .filter(Boolean)
-    .filter((r) => force || r.translation?.provider !== provider)
+    // Claude translations are the best we have; only redo them with --force.
+    .filter((r) => force || (r.translation?.provider !== provider && !r.translation?.provider?.startsWith('claude:')))
     .slice(0, retranslateLimit);
   console.log(`Re-translating ${todo.length} recipes with ${model}${dryRun ? ' (dry run)' : ''}...`);
 
   let ok = 0;
   let failed = 0;
+  let failedInRow = 0;
   for (const [i, r] of todo.entries()) {
     const base = {
       ...r,
@@ -1341,7 +1343,12 @@ async function retranslateAll({ dryRun, retranslateLimit, force }) {
       steps: { en: r.steps?.en ?? [] },
     };
     const out = await translate(base);
-    if (out === base) { failed++; continue; }
+    if (out === base) {
+      failed++;
+      if (++failedInRow >= 3) { console.log('3 failures in a row (daily quota or credits used up?) - stopping. Re-run later to continue.'); break; }
+      continue;
+    }
+    failedInRow = 0;
     ok++;
     const patch = { title: out.title, summary: out.summary, ingredients: out.ingredients, steps: out.steps, translation: out.translation };
     if (dryRun) {
